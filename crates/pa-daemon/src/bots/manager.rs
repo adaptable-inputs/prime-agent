@@ -597,6 +597,7 @@ impl BotManager {
                 .map(|context| context.bot_id),
             pause_at: None,
             status_since: None,
+            running_ms: 0,
         })?;
         if spec.bots {
             let mut spawns = read_spawns_marker(&self.agent_dir);
@@ -1030,16 +1031,21 @@ impl BotManager {
 
     /// Persist `record`. A lifecycle operation saves a snapshot taken before
     /// its awaits, so a newer settled-turn time from [`Self::record_turn`] wins.
-    /// A status change stamps `status_since`.
+    /// A status change stamps `status_since`, and a running interval that ends
+    /// adds to `running_ms`.
     fn save(&self, mut record: BotRecord) -> Result<()> {
         let mut registry = lock(&self.registry);
+        let now = now_ms();
         let current = registry.get(&record.bot_id);
         if let Some(current) = current {
             record.last_turn_at = record.last_turn_at.max(current.last_turn_at);
         }
-        record.status_since = match current {
-            Some(current) if current.status == record.status => current.status_since,
-            _ => Some(now_ms()),
+        (record.status_since, record.running_ms) = match current {
+            Some(current) if current.status == record.status => {
+                (current.status_since, current.running_ms)
+            }
+            Some(current) => (Some(now), current.running_ms_at(now)),
+            None => (Some(now), 0),
         };
         registry.put(record)
     }
@@ -2255,13 +2261,18 @@ fn child_record(
     }
     let existing = existing.unwrap_or_default();
     let field = |key: &str| row.get(key).cloned().unwrap_or(Value::Null);
+    let status = serde_json::from_value(field("status")).unwrap_or(BotStatus::Stopped);
+    let open_interval = match (status, field("statusSince").as_i64()) {
+        (BotStatus::Running, Some(since)) => (now_ms() - since).max(0),
+        _ => 0,
+    };
     Some(BotRecord {
         bot_id: bot_id.to_string(),
         name: text("name").unwrap_or_default().to_string(),
         owner_session_id: text("ownerSessionId").unwrap_or_default().to_string(),
         owner_active_session_id: None,
         sandbox_id: text("sandboxId").map(str::to_string),
-        status: serde_json::from_value(field("status")).unwrap_or(BotStatus::Stopped),
+        status,
         checkpoint_id: text("checkpointId").map(str::to_string),
         older_checkpoint_ids: existing.older_checkpoint_ids,
         version: text("version").unwrap_or_default().to_string(),
@@ -2283,6 +2294,9 @@ fn child_record(
         parent_bot_id: Some(parent_bot_id.to_string()),
         pause_at: field("pauseAt").as_i64(),
         status_since: field("statusSince").as_i64(),
+        // The guest's row counts the current running interval; the record
+        // adds it again from `status_since`, so keep only the closed ones.
+        running_ms: (field("runningMs").as_i64().unwrap_or_default() - open_interval).max(0),
         pause_token: existing.pause_token,
     })
 }
@@ -2328,6 +2342,7 @@ fn rebuilt_record(bot_id: &str, sandbox: &BotSandbox) -> BotRecord {
         parent_bot_id: label_value(&sandbox.labels, &format!("{BOT_LABEL}-parent:")),
         pause_at: None,
         status_since: None,
+        running_ms: 0,
     }
 }
 

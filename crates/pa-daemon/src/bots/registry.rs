@@ -122,6 +122,21 @@ pub struct BotRecord {
     /// Unix milliseconds of the last status change.
     #[serde(default)]
     pub status_since: Option<i64>,
+    /// Milliseconds the bot ran before its current status.
+    #[serde(default)]
+    pub running_ms: i64,
+}
+
+impl BotRecord {
+    /// Milliseconds the bot ran up to `now_ms`, the current running interval included.
+    #[must_use]
+    pub fn running_ms_at(&self, now_ms: i64) -> i64 {
+        let current = match (self.status, self.status_since) {
+            (BotStatus::Running, Some(since)) => (now_ms - since).max(0),
+            _ => 0,
+        };
+        self.running_ms + current
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]

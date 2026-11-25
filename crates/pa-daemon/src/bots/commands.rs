@@ -162,6 +162,7 @@ pub fn bot_row(
     login_stale: &[String],
     spawns_bots: bool,
 ) -> Value {
+    let running_ms = record.running_ms_at(super::manager::now_ms());
     json!({
         "botId": record.bot_id,
         "name": record.name,
@@ -183,6 +184,9 @@ pub fn bot_row(
         "statusSince": record.status_since,
         // A merged child row carries its own daemon's pause time.
         "pauseAt": super::replies::pause_at(&record.bot_id).or(record.pause_at),
+        "runningMs": running_ms,
+        // An estimate from the bot's size and Prime's published rates.
+        "costUsd": running_ms as f64 / 3_600_000.0 * super::platform::BOT_HOURLY_USD_ESTIMATE,
     })
 }
 
@@ -780,5 +784,27 @@ mod tests {
 
         let resumed = resume_bot(&manager, "bot-a").await.unwrap();
         assert_eq!(resumed.status, BotStatus::Running);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn the_row_prices_only_the_running_time() {
+        let (_dir, _platform, manager) = setup();
+        manager.spawn(&spec("bot-a")).await.unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        pause_bot(&manager, "bot-a").await.unwrap();
+        let ran = manager.get("bot-a").unwrap().running_ms;
+        assert!(ran >= 50, "{ran}");
+
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let row = bot_row(&manager.get("bot-a").unwrap(), false, &[], false);
+        assert_eq!(row["runningMs"], ran, "a paused bot adds no time");
+        let cost = row["costUsd"].as_f64().unwrap();
+        let expected = ran as f64 / 3_600_000.0 * super::super::platform::BOT_HOURLY_USD_ESTIMATE;
+        assert!(cost > 0.0 && (cost - expected).abs() < 1e-12, "{cost}");
+
+        resume_bot(&manager, "bot-a").await.unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let row = bot_row(&manager.get("bot-a").unwrap(), false, &[], false);
+        assert!(row["runningMs"].as_i64().unwrap() >= ran + 50, "{row}");
     }
 }

@@ -596,6 +596,7 @@ impl BotManager {
             parent_bot_id: super::nested::NestedContext::read(&self.agent_dir)
                 .map(|context| context.bot_id),
             pause_at: None,
+            status_since: None,
         })?;
         if spec.bots {
             let mut spawns = read_spawns_marker(&self.agent_dir);
@@ -1029,11 +1030,17 @@ impl BotManager {
 
     /// Persist `record`. A lifecycle operation saves a snapshot taken before
     /// its awaits, so a newer settled-turn time from [`Self::record_turn`] wins.
+    /// A status change stamps `status_since`.
     fn save(&self, mut record: BotRecord) -> Result<()> {
         let mut registry = lock(&self.registry);
-        if let Some(current) = registry.get(&record.bot_id) {
+        let current = registry.get(&record.bot_id);
+        if let Some(current) = current {
             record.last_turn_at = record.last_turn_at.max(current.last_turn_at);
         }
+        record.status_since = match current {
+            Some(current) if current.status == record.status => current.status_since,
+            _ => Some(now_ms()),
+        };
         registry.put(record)
     }
 
@@ -2275,6 +2282,7 @@ fn child_record(
         bots: false,
         parent_bot_id: Some(parent_bot_id.to_string()),
         pause_at: field("pauseAt").as_i64(),
+        status_since: field("statusSince").as_i64(),
         pause_token: existing.pause_token,
     })
 }
@@ -2319,6 +2327,7 @@ fn rebuilt_record(bot_id: &str, sandbox: &BotSandbox) -> BotRecord {
         pause_rule_host: None,
         parent_bot_id: label_value(&sandbox.labels, &format!("{BOT_LABEL}-parent:")),
         pause_at: None,
+        status_since: None,
     }
 }
 
@@ -2395,7 +2404,7 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
-fn now_ms() -> i64 {
+pub(crate) fn now_ms() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| {

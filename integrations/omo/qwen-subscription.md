@@ -1,6 +1,6 @@
 # Prime Agent Qwen subscription helper
 
-This helper implements Qwen's modern paid subscription device grant separately from legacy Qwen OAuth. It does not add a native Rust OAuth provider. Install `qwen-subscription.mjs` in `$HOME/.prime/agent/` and use Bun to run it. Linux `/usr/bin/flock` is required for cross-process credential locking.
+This optional helper implements Qwen's modern paid subscription device grant separately from legacy Qwen OAuth. Prime Agent also supports [native Qwen Code subscription sign-in](../../docs/qwen-code-subscription.md) through `/login`, without this helper or Bun. For the standalone helper, install `qwen-subscription.mjs` in `$HOME/.prime/agent/` and use Bun to run it. Linux `/usr/bin/flock` is required for the helper's cross-process credential locking.
 
 ## Commands
 

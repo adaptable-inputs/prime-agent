@@ -558,9 +558,32 @@ impl ModelRegistry {
         model: &Model,
         request_headers: Option<&BTreeMap<String, String>>,
     ) -> ResolvedRequestAuth {
+        if model.provider == crate::auth::QWEN_SUBSCRIPTION_PROVIDER_ID
+            && (model.api != "openai-completions"
+                || model.base_url != pa_ai::oauth::QWEN_SUBSCRIPTION_BASE_URL)
+        {
+            return ResolvedRequestAuth {
+                ok: false,
+                error: Some(
+                    "Qwen Code subscriptions require the official OpenAI Chat Completions gateway. Remove the provider's API or baseUrl override."
+                        .to_string(),
+                ),
+                ..Default::default()
+            };
+        }
         let stored = self
             .auth
             .get_api_key_with_source_token(&model.provider, false);
+        // A native Qwen grant must not silently switch accounts through an older helper command.
+        if model.provider == crate::auth::QWEN_SUBSCRIPTION_PROVIDER_ID {
+            if let Some(failure) = &stored.refresh_failure {
+                return ResolvedRequestAuth {
+                    ok: false,
+                    error: Some(failure.to_string()),
+                    ..Default::default()
+                };
+            }
+        }
         let mut api_key = stored.api_key;
         let provider_config = self.provider_request_configs.get(&model.provider).cloned();
         if api_key.is_none() {

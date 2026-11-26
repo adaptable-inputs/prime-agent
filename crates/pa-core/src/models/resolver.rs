@@ -13,6 +13,7 @@ pub fn default_model_per_provider(provider: &str) -> Option<&'static str> {
         "anthropic" => "claude-opus-4-7",
         "openai" | "azure-openai-responses" | "github-copilot" => "gpt-5.4",
         "openai-codex" => "gpt-5.5",
+        "qwen-coder-subscription" => "qwen3.8-max",
         "prime-inference" => PRIME_INFERENCE_DEFAULT_MODEL_ID,
         "deepseek" => "deepseek-v4-pro",
         "google" | "google-vertex" => "gemini-3.1-pro-preview",

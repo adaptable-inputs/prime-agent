@@ -1,12 +1,13 @@
 //! The built-in subscription providers' OAuth integration: the stored `openai-codex`, `anthropic`,
-//! `github-copilot`, and `xai` credentials refresh at their token endpoints when they expire; every
+//! `github-copilot`, `xai`, and `qwen-coder-subscription` credentials refresh at their token endpoints when they expire; every
 //! other provider serves its access token until expiry.
 
 use std::sync::Arc;
 
 use pa_ai::oauth::{
     refresh_anthropic_token, refresh_github_copilot_token, refresh_openai_codex_token,
-    refresh_xai_token, CodexHttp, ProviderHttp, ReqwestCodexHttp, ReqwestProviderHttp,
+    refresh_qwen_subscription_token, refresh_xai_token, CodexHttp, ProviderHttp, ReqwestCodexHttp,
+    ReqwestProviderHttp,
 };
 
 use crate::auth::types::{AuthCredential, AuthStorageData};
@@ -19,6 +20,8 @@ pub const ANTHROPIC_PROVIDER_ID: &str = "anthropic";
 pub const GITHUB_COPILOT_PROVIDER_ID: &str = "github-copilot";
 /// The xAI (Grok) subscription provider id.
 pub const XAI_PROVIDER_ID: &str = "xai";
+/// The Qwen Code Plus/Pro subscription provider id.
+pub const QWEN_SUBSCRIPTION_PROVIDER_ID: &str = "qwen-coder-subscription";
 
 /// The AI library's oauth registry as the auth storage's default
 /// integration.
@@ -161,8 +164,26 @@ impl ProviderOAuth {
                             audience_mode: None,
                         })
                     }
-                    // The match arms cover the four subscription ids;
-                    // `refresh` never dispatches another.
+                    QWEN_SUBSCRIPTION_PROVIDER_ID => {
+                        let credentials = runtime.block_on(refresh_qwen_subscription_token(
+                            provider_http.as_ref(),
+                            &refresh_token,
+                        ))?;
+                        Ok(AuthCredential::Oauth {
+                            access: credentials.access,
+                            refresh: Some(credentials.refresh),
+                            expires: credentials.expires,
+                            account_id: None,
+                            enterprise_url: None,
+                            endpoint: None,
+                            token_endpoint: None,
+                            client_id: None,
+                            resource: None,
+                            issuer: None,
+                            audience_mode: None,
+                        })
+                    }
+                    // `refresh` only dispatches the built-in subscription ids.
                     _ => Err("no token refresh for this provider".to_string()),
                 }
             })
@@ -191,6 +212,7 @@ impl crate::auth::OAuthIntegration for ProviderOAuth {
                 | ANTHROPIC_PROVIDER_ID
                 | GITHUB_COPILOT_PROVIDER_ID
                 | XAI_PROVIDER_ID
+                | QWEN_SUBSCRIPTION_PROVIDER_ID
         ) {
             return Err(format!("{provider_id} has no token refresh"));
         }
@@ -311,7 +333,7 @@ mod tests {
         }
     }
 
-    /// The scripted endpoints for the four subscription refreshes.
+    /// The scripted endpoints for the subscription refreshes.
     fn integrations() -> std::sync::Arc<ProviderOAuth> {
         let mut codex = HashMap::new();
         codex.insert(
@@ -358,6 +380,20 @@ mod tests {
                     "access_token": "grok-access",
                     "refresh_token": "grok-refresh",
                     "expires_in": 3600,
+                })
+                .to_string(),
+            },
+        );
+        providers.insert(
+            "https://auth.qwen.ai/api/oauth/token".to_string(),
+            ProviderHttpResponse {
+                status: 200,
+                body: serde_json::json!({
+                    "access_token": "qwen-access",
+                    "refresh_token": "qwen-refresh",
+                    "expires_in": 3600,
+                    "token_type": "Bearer",
+                    "scope": "model:invoke profile:read",
                 })
                 .to_string(),
             },
@@ -470,6 +506,54 @@ mod tests {
         };
         assert_eq!(refresh.as_deref(), Some("grok-refresh"));
         assert!(expires > 1, "the fresh expiry landed");
+    }
+
+    #[test]
+    fn an_expired_qwen_credential_rotates_both_tokens_and_persists() {
+        let directory = tempfile::tempdir().expect("temp dir");
+        let mut auth =
+            crate::auth::AuthStorage::create_with_oauth(directory.path(), integrations());
+        auth.set(
+            QWEN_SUBSCRIPTION_PROVIDER_ID,
+            expired_credential(QWEN_SUBSCRIPTION_PROVIDER_ID),
+        );
+        assert_eq!(
+            auth.get_api_key(QWEN_SUBSCRIPTION_PROVIDER_ID),
+            Some("qwen-access".to_string())
+        );
+        let stored = auth
+            .get_all()
+            .credential(QWEN_SUBSCRIPTION_PROVIDER_ID)
+            .expect("the refreshed pair remains stored");
+        let AuthCredential::Oauth { expires, .. } = &stored else {
+            panic!("the refreshed credential is OAuth");
+        };
+        let now_ms = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as i64;
+        assert!(*expires > now_ms);
+        let reloaded = crate::auth::AuthStorage::create(directory.path());
+        assert_eq!(
+            reloaded.get_all().credential(QWEN_SUBSCRIPTION_PROVIDER_ID),
+            Some(stored.clone())
+        );
+        assert_eq!(
+            stored,
+            AuthCredential::Oauth {
+                access: "qwen-access".to_string(),
+                refresh: Some("qwen-refresh".to_string()),
+                expires: *expires,
+                account_id: None,
+                enterprise_url: None,
+                endpoint: None,
+                token_endpoint: None,
+                client_id: None,
+                resource: None,
+                issuer: None,
+                audience_mode: None,
+            }
+        );
     }
 
     #[test]

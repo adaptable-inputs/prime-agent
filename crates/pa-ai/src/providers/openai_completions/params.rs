@@ -352,6 +352,16 @@ pub(crate) fn build_headers(
     }
 
     crate::providers::opencode_headers::apply(&mut headers, &model.provider, conversation_id);
+    if model.provider == "qwen-coder-subscription" {
+        headers.retain(|(name, _)| {
+            !name.eq_ignore_ascii_case("authorization") && !name.eq_ignore_ascii_case("user-agent")
+        });
+        headers.push(("Authorization".into(), format!("Bearer {api_key}")));
+        headers.push((
+            "User-Agent".into(),
+            crate::oauth::qwen_subscription_user_agent(),
+        ));
+    }
     headers
 }
 
@@ -448,6 +458,64 @@ mod tests {
                 "authorization".to_string(),
                 "Bearer caller-token".to_string()
             )]
+        );
+    }
+
+    #[test]
+    fn qwen_subscription_protects_the_supplied_bearer_and_wire_user_agent() {
+        let mut model = models_generated::get_model("openai", "gpt-4")
+            .expect("compiled template")
+            .clone();
+        model.provider = "qwen-coder-subscription".into();
+        model.headers = Some(std::collections::BTreeMap::from([
+            ("authorization".into(), "Bearer model-token".into()),
+            ("USER-AGENT".into(), "model-agent".into()),
+            ("X-Custom".into(), "model-value".into()),
+        ]));
+        let caller = HashMap::from([
+            ("AUTHORIZATION".into(), "Bearer caller-token".into()),
+            ("user-agent".into(), "caller-agent".into()),
+            ("User-Agent".into(), "another-caller-agent".into()),
+            ("X-Custom".into(), "caller-value".into()),
+        ]);
+        let compat = crate::providers::openai_completions::get_compat(&model);
+        let mut headers =
+            build_headers(&model, "serving-token", Some(&caller), None, &compat, None);
+        headers.sort_unstable();
+        let platform = if cfg!(target_os = "macos") {
+            "darwin"
+        } else if cfg!(target_os = "windows") {
+            "win32"
+        } else if cfg!(any(target_os = "solaris", target_os = "illumos")) {
+            "sunos"
+        } else {
+            std::env::consts::OS
+        };
+        let arch = if cfg!(target_arch = "x86_64") {
+            "x64"
+        } else if cfg!(target_arch = "aarch64") {
+            "arm64"
+        } else if cfg!(target_arch = "x86") {
+            "ia32"
+        } else if cfg!(target_arch = "powerpc") {
+            "ppc"
+        } else if cfg!(target_arch = "powerpc64") {
+            "ppc64"
+        } else if cfg!(target_arch = "loongarch64") {
+            "loong64"
+        } else {
+            std::env::consts::ARCH
+        };
+        assert_eq!(
+            headers,
+            vec![
+                ("Authorization".into(), "Bearer serving-token".into()),
+                (
+                    "User-Agent".into(),
+                    format!("QwenCode/unknown ({platform}; {arch})")
+                ),
+                ("X-Custom".into(), "caller-value".into()),
+            ]
         );
     }
 

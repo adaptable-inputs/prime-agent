@@ -122,6 +122,87 @@ fn the_api_key_login_rule_matches_ts() {
 }
 
 #[tokio::test]
+async fn qwen_subscription_dispatches_without_a_key_and_logs_out_by_name() {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let agent = dir.path().join("agent");
+    std::fs::create_dir_all(&agent).expect("agent dir");
+    let auth = ProviderAuth::new(dir.path(), agent.clone());
+    let rows: Vec<_> = auth
+        .login_options()
+        .await
+        .into_iter()
+        .filter(|row| row.id == pa_core::auth::QWEN_SUBSCRIPTION_PROVIDER_ID)
+        .collect();
+    let row = ProviderRow {
+        id: pa_core::auth::QWEN_SUBSCRIPTION_PROVIDER_ID.to_string(),
+        name: "Qwen Code (Plus/Pro Subscription)".to_string(),
+        auth_type: AuthType::Oauth,
+        status: Some(AuthStatusIndicator {
+            style: AuthStatusStyle::Muted,
+            label: "unconfigured".to_string(),
+        }),
+        flow: AuthFlow::TerminalFlow,
+        configured: false,
+        available: true,
+    };
+    assert_eq!(rows, vec![row.clone()]);
+    let mut selector = pa_tui::provider_auth::ProviderAuthSelector::new(
+        pa_tui::provider_auth::AuthSelectorKind::Login,
+        rows,
+    );
+    assert_eq!(
+        selector.handle_key("enter", &pa_tui::keybindings::KeybindingsManager::new()),
+        pa_tui::provider_auth::AuthSelectorAction::Login {
+            provider: row.clone(),
+            api_key: None,
+        }
+    );
+    assert_eq!(
+        auth.login(&row, Some("not-an-api-key")).await,
+        ProviderAuthOutcome::Cancelled
+    );
+    assert_eq!(
+        std::fs::read_to_string(agent.join("auth.json")).unwrap(),
+        "{}"
+    );
+
+    let mut storage = pa_core::auth::AuthStorage::create(&agent);
+    storage.set(
+        &row.id,
+        AuthCredential::Oauth {
+            access: "qwen-access".to_string(),
+            refresh: Some("qwen-refresh".to_string()),
+            expires: i64::MAX,
+            account_id: None,
+            enterprise_url: None,
+            endpoint: None,
+            token_endpoint: None,
+            client_id: None,
+            resource: None,
+            issuer: None,
+            audience_mode: None,
+        },
+    );
+    let logout = auth.logout_options().await;
+    assert_eq!(
+        logout,
+        vec![ProviderRow {
+            configured: true,
+            status: Some(AuthStatusIndicator {
+                style: AuthStatusStyle::Success,
+                label: "configured".to_string(),
+            }),
+            ..row
+        }]
+    );
+    assert_eq!(
+        auth.logout(&logout[0]).await,
+        ProviderAuthOutcome::Status("Logged out of Qwen Code (Plus/Pro Subscription)".to_string())
+    );
+    assert_eq!(auth.logout_options().await, Vec::<ProviderRow>::new());
+}
+
+#[tokio::test]
 async fn login_options_list_providers_only() {
     let dir = tempfile::tempdir().expect("temp dir");
     let agent = dir.path().join("agent");

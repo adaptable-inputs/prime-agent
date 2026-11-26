@@ -13,6 +13,7 @@ use crate::utils::stream_failure::{
 };
 
 static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+static HTTP1_NO_REDIRECTS_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 static H2_ALPN_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 /// The HTTP/1.1 client every provider shares, pinned with `http1_only()` so that enabling the
@@ -52,6 +53,8 @@ fn h2_alpn_client() -> &'static reqwest::Client {
 pub enum Transport {
     /// HTTP/1.1 (the default; all providers but bedrock https).
     Http1,
+    /// HTTP/1.1 without following redirects (fixed-destination subscription credentials).
+    Http1NoRedirects,
     /// HTTP/2 preferred over TLS ALPN (bedrock https endpoints).
     H2Alpn,
 }
@@ -235,6 +238,15 @@ pub async fn send(request: RequestOptions) -> Result<HttpResponse, ProviderError
 
     let client = match request.transport {
         Transport::Http1 => client(),
+        Transport::Http1NoRedirects => HTTP1_NO_REDIRECTS_CLIENT.get_or_init(|| {
+            reqwest::Client::builder()
+                .tls_backend_preconfigured(crate::utils_inner::tls::tls_config(&[b"http/1.1"]))
+                .http1_only()
+                .redirect(reqwest::redirect::Policy::none())
+                .pool_idle_timeout(std::time::Duration::from_secs(90))
+                .build()
+                .expect("reqwest no-redirect client")
+        }),
         Transport::H2Alpn => h2_alpn_client(),
     };
     let mut builder = client.request(request.method, &request.url);
@@ -422,6 +434,99 @@ mod tests {
                 text.push_str(&chunk);
             }
             assert_eq!(text, expected);
+        }
+    }
+
+    /// A 307 must not replay subscription credentials or the POST body; the existing clients
+    /// retain their normal same-origin redirect behavior.
+    #[tokio::test]
+    async fn no_redirect_transport_never_replays_the_request() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        for (transport, expected_status) in [
+            (Transport::Http1NoRedirects, 307),
+            (Transport::Http1, 200),
+            (Transport::H2Alpn, 200),
+        ] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let url = format!("http://{}/initial", listener.local_addr().unwrap());
+            let (stop_tx, mut stop_rx) = tokio::sync::oneshot::channel::<()>();
+            let server = tokio::spawn(async move {
+                let mut requests = Vec::new();
+                loop {
+                    let (mut socket, _) = tokio::select! {
+                        request = listener.accept() => request.unwrap(),
+                        _ = &mut stop_rx => break,
+                    };
+                    let mut request = Vec::new();
+                    let mut buffer = [0; 4096];
+                    let (head_end, body_len) = loop {
+                        let read = socket.read(&mut buffer).await.unwrap();
+                        assert_ne!(read, 0, "request ended before the headers");
+                        request.extend_from_slice(&buffer[..read]);
+                        if let Some(head_end) =
+                            request.windows(4).position(|part| part == b"\r\n\r\n")
+                        {
+                            let head = std::str::from_utf8(&request[..head_end]).unwrap();
+                            let body_len = head
+                                .lines()
+                                .filter_map(|line| line.split_once(':'))
+                                .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                                .map(|(_, value)| value.trim().parse::<usize>().unwrap())
+                                .unwrap();
+                            break (head_end, body_len);
+                        }
+                    };
+                    while request.len() < head_end + 4 + body_len {
+                        let read = socket.read(&mut buffer).await.unwrap();
+                        assert_ne!(read, 0, "request ended before the body");
+                        request.extend_from_slice(&buffer[..read]);
+                    }
+                    let head = std::str::from_utf8(&request[..head_end]).unwrap();
+                    let authorization = head
+                        .lines()
+                        .filter_map(|line| line.split_once(':'))
+                        .filter(|(name, _)| name.eq_ignore_ascii_case("authorization"))
+                        .map(|(_, value)| value.trim().to_string())
+                        .collect::<Vec<_>>();
+                    requests.push((
+                        head.lines().next().unwrap().to_string(),
+                        authorization,
+                        request[head_end + 4..].to_vec(),
+                    ));
+                    let response = if requests.len() == 1 {
+                        "HTTP/1.1 307 Temporary Redirect\r\nLocation: /replayed\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    } else {
+                        "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    };
+                    socket.write_all(response.as_bytes()).await.unwrap();
+                    if requests.len() == 2 {
+                        break;
+                    }
+                }
+                requests
+            });
+            let mut request = RequestOptions::new(reqwest::Method::POST, url);
+            request.transport = transport;
+            request.headers = vec![("Authorization".into(), "Bearer serving-token".into())];
+            request.body = Some("request body".into());
+            request.timeout_ms = Some(10_000);
+            let response = send(request).await.unwrap();
+            let _ = stop_tx.send(());
+            let requests = server.await.unwrap();
+            let mut expected = vec![(
+                "POST /initial HTTP/1.1".to_string(),
+                vec!["Bearer serving-token".to_string()],
+                b"request body".to_vec(),
+            )];
+            if transport != Transport::Http1NoRedirects {
+                expected.push((
+                    "POST /replayed HTTP/1.1".to_string(),
+                    vec!["Bearer serving-token".to_string()],
+                    b"request body".to_vec(),
+                ));
+            }
+            assert_eq!((response.status, requests), (expected_status, expected));
         }
     }
 

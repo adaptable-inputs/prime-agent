@@ -13,11 +13,17 @@ use pa_tui::provider_auth::{
     ProviderWarningFuture,
 };
 
+const QWEN_SUBSCRIPTION_PROVIDER_NAME: &str = "Qwen Code (Plus/Pro Subscription)";
+
 /// The subscription login providers (every flow ported).
-const SUBSCRIPTION_PROVIDERS: [(&str, &str); 4] = [
+const SUBSCRIPTION_PROVIDERS: [(&str, &str); 5] = [
     ("anthropic", "Anthropic (Claude Pro/Max)"),
     ("github-copilot", "GitHub Copilot"),
     ("openai-codex", "ChatGPT Plus/Pro (Codex Subscription)"),
+    (
+        pa_core::auth::QWEN_SUBSCRIPTION_PROVIDER_ID,
+        QWEN_SUBSCRIPTION_PROVIDER_NAME,
+    ),
     ("xai", "xAI (Grok)"),
 ];
 
@@ -66,6 +72,9 @@ const PRIME_INFERENCE_PROVIDER_ID: &str = "prime-inference";
 
 /// The display name of a provider id (else the id itself).
 fn display_name(provider_id: &str) -> String {
+    if provider_id == pa_core::auth::QWEN_SUBSCRIPTION_PROVIDER_ID {
+        return QWEN_SUBSCRIPTION_PROVIDER_NAME.to_string();
+    }
     BUILT_IN_PROVIDER_DISPLAY_NAMES
         .iter()
         .find(|(id, _)| *id == provider_id)
@@ -78,6 +87,9 @@ fn is_api_key_login_provider(
     provider_id: &str,
     built_in_provider_ids: &std::collections::HashSet<String>,
 ) -> bool {
+    if provider_id == pa_core::auth::QWEN_SUBSCRIPTION_PROVIDER_ID {
+        return false;
+    }
     if BUILT_IN_PROVIDER_DISPLAY_NAMES
         .iter()
         .any(|(id, _)| *id == provider_id)
@@ -632,6 +644,30 @@ fn login_blocking_on_panel(
                 },
                 |runtime| {
                     runtime.block_on(crate::subscription_login::run_xai_login(
+                        &agent_dir,
+                        &provider_row.name,
+                        &pa_ai::oauth::ReqwestProviderHttp::new(),
+                        &crate::subscription_login::PanelSubscriptionLoginUi::new(
+                            panel,
+                            &provider_row.id,
+                        ),
+                    ))
+                },
+            );
+    }
+    if provider_row.id == pa_core::auth::QWEN_SUBSCRIPTION_PROVIDER_ID {
+        return tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_or_else(
+                |error: std::io::Error| {
+                    ProviderAuthOutcome::Error(format!(
+                        "Failed to login to {}: {error}",
+                        provider_row.name
+                    ))
+                },
+                |runtime| {
+                    runtime.block_on(crate::subscription_login::run_qwen_subscription_login(
                         &agent_dir,
                         &provider_row.name,
                         &pa_ai::oauth::ReqwestProviderHttp::new(),

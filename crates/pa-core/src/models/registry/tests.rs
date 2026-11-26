@@ -28,6 +28,61 @@ fn model(id: &str, provider: &str) -> Model {
 }
 
 #[test]
+fn a_failed_native_qwen_refresh_does_not_switch_to_the_helper_grant() {
+    let dir = tempfile::tempdir().unwrap();
+    let models_path = dir.path().join("models.json");
+    std::fs::write(
+        &models_path,
+        r#"{ "providers": { "qwen-coder-subscription": {
+            "baseUrl": "https://api.qwen.ai/compatible-mode/v1", "apiKey": "helper-access",
+            "api": "openai-completions", "models": [{ "id": "qwen-test" }]
+        } } }"#,
+    )
+    .unwrap();
+    let auth = auth_without_env(&serde_json::json!({
+        "qwen-coder-subscription": {
+            "type": "oauth", "access": "native-access", "refresh": "native-refresh", "expires": 1
+        }
+    }));
+    let mut registry = ModelRegistry::create(auth, models_path);
+    let model = registry
+        .get_all()
+        .iter()
+        .find(|model| model.provider == "qwen-coder-subscription" && model.id == "qwen-test")
+        .unwrap()
+        .clone();
+    let resolved = registry.get_api_key_and_headers(&model, None);
+    assert!(!resolved.ok);
+    assert!(resolved.error.unwrap().contains("Run /login"));
+    assert_eq!(resolved.api_key, None);
+    assert!(registry
+        .auth
+        .get_all()
+        .credential("qwen-coder-subscription")
+        .is_some());
+}
+
+#[test]
+fn qwen_subscription_credentials_cannot_be_routed_through_another_api() {
+    let auth = auth_without_env(&serde_json::json!({
+        "qwen-coder-subscription": {
+            "type": "oauth", "access": "native-access", "refresh": "native-refresh", "expires": i64::MAX
+        }
+    }));
+    let mut registry = ModelRegistry::in_memory(auth);
+    let mut model = model("qwen-test", "qwen-coder-subscription");
+    model.base_url = "https://api.qwen.ai/compatible-mode/v1".to_string();
+    model.api = "anthropic-messages".to_string();
+    let resolved = registry.get_api_key_and_headers(&model, None);
+    assert!(!resolved.ok);
+    assert_eq!(resolved.api_key, None);
+    assert!(resolved
+        .error
+        .unwrap()
+        .contains("official OpenAI Chat Completions gateway"));
+}
+
+#[test]
 fn in_memory_loads_built_in_catalog() {
     let registry = ModelRegistry::in_memory(auth_with(&serde_json::json!({})));
     assert!(registry.get_error().is_none());

@@ -11,6 +11,7 @@ use crate::event_stream::{
     create_assistant_message_event_stream, AssistantMessageEvent, AssistantMessageEventStream,
     AssistantMessageEventWriter,
 };
+use crate::oauth::QWEN_SUBSCRIPTION_BASE_URL;
 use crate::providers::openai_completions::convert::{map_stop_reason, parse_chunk_usage};
 use crate::providers::openai_completions::errors::{openai_http_error, openrouter_raw_metadata};
 use crate::providers::openai_completions::get_compat_cache_control;
@@ -25,7 +26,7 @@ use crate::types::{
     done_reason, error_reason, AssistantContent, AssistantMessage, CacheRetention, Context, Model,
     StopReason, TextContent, ThinkingContent, ToolCall, Usage,
 };
-use crate::utils_inner::http::{send, HttpResponse, RequestOptions};
+use crate::utils_inner::http::{send, HttpResponse, RequestOptions, Transport};
 use crate::utils_inner::json_parse::{
     parse_json_with_repair, parse_streaming_json, StreamingJsonAccumulator,
 };
@@ -551,6 +552,16 @@ async fn run_stream(
     output: &mut AssistantMessage,
     writer: &AssistantMessageEventWriter,
 ) -> Result<(), ProviderError> {
+    let transport = if model.provider == "qwen-coder-subscription" {
+        if model.base_url != QWEN_SUBSCRIPTION_BASE_URL {
+            return Err(ProviderError::Message(format!(
+                "Qwen subscription inference requires {QWEN_SUBSCRIPTION_BASE_URL}"
+            )));
+        }
+        Transport::Http1NoRedirects
+    } else {
+        Transport::Http1
+    };
     let base_options = options.map_or_default(|options| options.base.clone());
     let api_key = base_options
         .api_key
@@ -612,7 +623,7 @@ async fn run_stream(
         signal: base_options.signal.clone(),
         timeout_ms: base_options.timeout_ms,
         connection: crate::utils_inner::stream_failure::ConnectionErrorProfile::Sdk,
-        transport: crate::utils_inner::http::Transport::Http1,
+        transport,
     })
     .await?;
 

@@ -1,0 +1,1 @@
+- Added native Qwen Code Plus/Pro subscription sign-in through `/login`, with automatic token refresh and no API key or external helper required.

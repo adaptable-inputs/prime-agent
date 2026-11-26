@@ -150,6 +150,32 @@ fn assistant_message() -> AssistantMessage {
     }
 }
 
+#[tokio::test]
+async fn qwen_subscription_adoption_keeps_only_provider_and_model_categories() {
+    let fixture = fixture();
+    let mut message = assistant_message();
+    message.provider = "qwen-coder-subscription".to_string();
+    message.model = "qwen3.8-max".to_string();
+    emit(&fixture, AgentEvent::AgentStart);
+    emit(&fixture, message_end_event(message));
+    emit(
+        &fixture,
+        AgentEvent::AgentEnd {
+            aborted: false,
+            messages: Vec::new(),
+        },
+    );
+    emit(&fixture, AgentEvent::AgentStart);
+    let runs = event_properties(&fixture.mock, "agent run completed").await;
+    assert_eq!(
+        (&runs[0]["provider_category"], &runs[0]["model_category"]),
+        (&serde_json::json!("qwen"), &serde_json::json!("qwen")),
+    );
+    let events = serde_json::to_string(&fixture.mock.events()).unwrap();
+    assert!(!events.contains("private assistant text"));
+    assert!(!events.contains("qwen3.8-max"));
+}
+
 fn assistant_with_error(error: &str) -> AssistantMessage {
     let mut message = assistant_message();
     message.stop_reason = StopReason::Error;

@@ -1,5 +1,5 @@
 //! The subscription logins (TS `showLoginDialog` over the `anthropic`,
-//! `githubCopilot`, and `xai` providers), rendered through the inline auth
+//! `githubCopilot`, `xai`, and Qwen Code providers), rendered through the inline auth
 //! panel. Cancellation (#2770): each flow checks the cancel flag between poll
 //! steps and before the credential write.
 
@@ -8,20 +8,22 @@ use std::path::Path;
 use std::pin::Pin;
 
 use pa_ai::oauth::{
-    login_anthropic, login_github_copilot, login_xai, AnthropicCredentials, OAuthLoginUi,
-    OAuthPrompt, ProviderHttp, ANTHROPIC_LOGIN_CANCELLED, COPILOT_LOGIN_CANCELLED,
-    XAI_LOGIN_CANCELLED,
+    check_qwen_subscription_membership, login_anthropic, login_github_copilot,
+    login_qwen_subscription, login_xai, AnthropicCredentials, OAuthLoginUi, OAuthPrompt,
+    ProviderHttp, ANTHROPIC_LOGIN_CANCELLED, COPILOT_LOGIN_CANCELLED,
+    QWEN_SUBSCRIPTION_LOGIN_CANCELLED, XAI_LOGIN_CANCELLED,
 };
 use pa_core::auth::{
-    AuthCredential, AuthStorage, ANTHROPIC_PROVIDER_ID, GITHUB_COPILOT_PROVIDER_ID, XAI_PROVIDER_ID,
+    AuthCredential, AuthStorage, ANTHROPIC_PROVIDER_ID, GITHUB_COPILOT_PROVIDER_ID,
+    QWEN_SUBSCRIPTION_PROVIDER_ID, XAI_PROVIDER_ID,
 };
 use pa_tui::auth_panel::{AuthPanelHandle, PastePromptTone, PasteStyle};
 use pa_tui::provider_auth::ProviderAuthOutcome;
 
 /// The manual-input prompt (the callback-server providers' paste line).
 const MANUAL_INPUT_PROMPT: &str = "Paste redirect URL below, or complete login in browser:";
-/// `showWaiting` for the Copilot device flow.
-const COPILOT_WAITING: &str = "Waiting for browser authentication...";
+/// The waiting indicator for browser device authorization.
+const DEVICE_AUTH_WAITING: &str = "Waiting for browser authentication...";
 
 /// The inline auth panel as the subscription logins' surface: the browser URL
 /// block (the flow opens the browser), the prompts, the progress lines, and the
@@ -44,10 +46,13 @@ impl OAuthLoginUi for PanelSubscriptionLoginUi {
     fn on_auth(&self, url: &str, instructions: Option<&str>) {
         self.panel.auth_url(url, instructions);
         pa_core::platform::browser::open_in_browser(url);
-        if self.provider_id == GITHUB_COPILOT_PROVIDER_ID {
+        if matches!(
+            self.provider_id.as_str(),
+            GITHUB_COPILOT_PROVIDER_ID | QWEN_SUBSCRIPTION_PROVIDER_ID
+        ) {
             // `showWaiting` is the dialog's own method, no onboarding guard —
             // never the `onProgress` chatter arm.
-            self.panel.waiting(COPILOT_WAITING);
+            self.panel.waiting(DEVICE_AUTH_WAITING);
         }
     }
 
@@ -254,6 +259,66 @@ pub(crate) async fn run_xai_login(
     login_status(agent_dir, provider_name)
 }
 
+/// Store the rotating grant before checking entitlement so an unavailable membership service
+/// cannot discard the account's newly issued refresh token.
+pub(crate) async fn run_qwen_subscription_login(
+    agent_dir: &Path,
+    provider_name: &str,
+    http: &dyn ProviderHttp,
+    ui: &dyn OAuthLoginUi,
+) -> ProviderAuthOutcome {
+    let credentials = match login_qwen_subscription(http, ui).await {
+        Ok(credentials) => credentials,
+        Err(message) if message == QWEN_SUBSCRIPTION_LOGIN_CANCELLED => {
+            return ProviderAuthOutcome::Cancelled;
+        }
+        Err(message) => {
+            return ProviderAuthOutcome::Error(format!(
+                "Failed to login to {provider_name}: {message}"
+            ));
+        }
+    };
+    if ui.is_cancelled() {
+        return ProviderAuthOutcome::Cancelled;
+    }
+    let access = credentials.access.clone();
+    let mut auth = AuthStorage::create(agent_dir);
+    auth.set(
+        QWEN_SUBSCRIPTION_PROVIDER_ID,
+        AuthCredential::Oauth {
+            access: credentials.access,
+            refresh: Some(credentials.refresh),
+            expires: credentials.expires,
+            account_id: None,
+            enterprise_url: None,
+            endpoint: None,
+            token_endpoint: None,
+            client_id: None,
+            resource: None,
+            issuer: None,
+            audience_mode: None,
+        },
+    );
+    if let Some(error) = auth.drain_errors().pop() {
+        return ProviderAuthOutcome::Error(format!(
+            "Failed to login to {provider_name}: could not save the login: {error}"
+        ));
+    }
+    let membership = check_qwen_subscription_membership(http, &access).await;
+    if ui.is_cancelled() {
+        return ProviderAuthOutcome::Cancelled;
+    }
+    match membership {
+        Ok(true) => login_status(agent_dir, provider_name),
+        Ok(false) => ProviderAuthOutcome::Error(format!(
+            "Failed to login to {provider_name}: a Qwen Code Plus or Pro subscription is required. Credentials retained."
+        )),
+        Err(message) => ProviderAuthOutcome::Error(format!(
+            "Failed to login to {provider_name}: {message} Credentials retained."
+        )),
+    }
+}
+
 /// The oauth status row.
 fn login_status(agent_dir: &Path, provider_name: &str) -> ProviderAuthOutcome {
     ProviderAuthOutcome::Status(format!(
@@ -275,12 +340,16 @@ mod tests {
     /// request).
     struct ScriptedHttp {
         queued: std::sync::Mutex<HashMap<String, VecDeque<ProviderHttpResponse>>>,
+        qwen_store: Option<std::path::PathBuf>,
+        qwen_membership_snapshot: std::sync::Mutex<Option<serde_json::Value>>,
     }
 
     impl ScriptedHttp {
         fn new() -> Self {
             ScriptedHttp {
                 queued: std::sync::Mutex::new(HashMap::new()),
+                qwen_store: None,
+                qwen_membership_snapshot: std::sync::Mutex::new(None),
             }
         }
 
@@ -307,6 +376,14 @@ mod tests {
             _timeout_ms: u64,
         ) -> Pin<Box<dyn Future<Output = Result<ProviderHttpResponse, String>> + Send + '_>>
         {
+            if request.url == "https://auth.qwen.ai/api/oauth/userinfo" {
+                if let Some(agent) = &self.qwen_store {
+                    let stored = std::fs::read_to_string(agent.join("auth.json"))
+                        .expect("the acquired pair is durable before membership validation");
+                    *self.qwen_membership_snapshot.lock().unwrap() =
+                        Some(serde_json::from_str(&stored).unwrap());
+                }
+            }
             let response = self
                 .queued
                 .lock()
@@ -408,6 +485,25 @@ mod tests {
             )
     }
 
+    fn qwen_http(membership: ProviderHttpResponse) -> ScriptedHttp {
+        ScriptedHttp::new()
+            .queue(
+                "https://auth.qwen.ai/api/oauth/device/code",
+                vec![ScriptedHttp::entry(
+                    200,
+                    r#"{"device_code":"dev-qwen","user_code":"QWEN-1234","interval":1,"expires_in":900}"#,
+                )],
+            )
+            .queue(
+                "https://auth.qwen.ai/api/oauth/token",
+                vec![ScriptedHttp::entry(
+                    200,
+                    r#"{"access_token":"qwen-access","refresh_token":"qwen-refresh","expires_in":3600,"token_type":"Bearer","scope":"model:invoke profile:read"}"#,
+                )],
+            )
+            .queue("https://auth.qwen.ai/api/oauth/userinfo", vec![membership])
+    }
+
     fn agent_dir(dir: &tempfile::TempDir) -> std::path::PathBuf {
         let agent = dir.path().join("agent");
         std::fs::create_dir_all(&agent).expect("agent dir");
@@ -448,6 +544,130 @@ mod tests {
             auth.get_api_key("github-copilot"),
             Some("copilot-token".to_string())
         );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn qwen_login_persists_before_membership_and_retains_the_pair_on_failure() {
+        for (status, membership, entitled) in [
+            (
+                200,
+                r#"{"sub":"account","name":"Example","email":"example@example.test","member_type":"Pro"}"#,
+                true,
+            ),
+            (
+                200,
+                r#"{"sub":"account","name":"Example","email":"example@example.test","member_type":"Lite"}"#,
+                false,
+            ),
+            (503, r#"{"error":"secret-server-response"}"#, false),
+        ] {
+            let dir = tempfile::tempdir().expect("temp dir");
+            let agent = agent_dir(&dir);
+            let mut auth = AuthStorage::create(&agent);
+            auth.set(
+                "unrelated",
+                AuthCredential::ApiKey {
+                    key: "keep-me".to_string(),
+                    prime_team: None,
+                },
+            );
+            auth.set(
+                QWEN_SUBSCRIPTION_PROVIDER_ID,
+                AuthCredential::ApiKey {
+                    key: "!previous-helper key".to_string(),
+                    prime_team: None,
+                },
+            );
+            let mut http = qwen_http(ScriptedHttp::entry(status, membership));
+            http.qwen_store = Some(agent.clone());
+            let ui = ScriptedUi::new();
+            let outcome = run_qwen_subscription_login(
+                &agent,
+                "Qwen Code (Plus/Pro Subscription)",
+                &http,
+                &ui,
+            )
+            .await;
+            if entitled {
+                assert_eq!(
+                    outcome,
+                    ProviderAuthOutcome::Status(format!(
+                        "Logged in to Qwen Code (Plus/Pro Subscription). Credentials saved to {}",
+                        agent.join("auth.json").display()
+                    ))
+                );
+            } else {
+                let ProviderAuthOutcome::Error(message) = outcome else {
+                    panic!("unpaid or unavailable membership is not a successful login");
+                };
+                assert!(message.contains("Credentials retained."));
+                assert!(!message.contains("secret-server-response"));
+            }
+            let document: serde_json::Value =
+                serde_json::from_str(&std::fs::read_to_string(agent.join("auth.json")).unwrap())
+                    .unwrap();
+            let expires = document[QWEN_SUBSCRIPTION_PROVIDER_ID]["expires"]
+                .as_i64()
+                .expect("the expiry is numeric");
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64;
+            assert!(expires > now_ms);
+            assert_eq!(
+                document,
+                serde_json::json!({
+                    "unrelated": {"type": "api_key", "key": "keep-me"},
+                    "qwen-coder-subscription": {
+                        "type": "oauth",
+                        "access": "qwen-access",
+                        "refresh": "qwen-refresh",
+                        "expires": expires,
+                    },
+                })
+            );
+            assert_eq!(
+                http.qwen_membership_snapshot.lock().unwrap().as_ref(),
+                Some(&document),
+                "membership runs only after the complete pair is durable"
+            );
+            let mut auth = AuthStorage::create(&agent);
+            assert_eq!(
+                auth.get_api_key(QWEN_SUBSCRIPTION_PROVIDER_ID),
+                Some("qwen-access".to_string())
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_cancelled_qwen_login_keeps_the_previous_credential() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let agent = agent_dir(&dir);
+        let mut auth = AuthStorage::create(&agent);
+        auth.set(
+            QWEN_SUBSCRIPTION_PROVIDER_ID,
+            AuthCredential::ApiKey {
+                key: "!previous-helper key".to_string(),
+                prime_team: None,
+            },
+        );
+        let before = std::fs::read(agent.join("auth.json")).unwrap();
+        let ui = ScriptedUi::new();
+        ui.flag().store(true, Ordering::Relaxed);
+        assert_eq!(
+            run_qwen_subscription_login(
+                &agent,
+                "Qwen Code (Plus/Pro Subscription)",
+                &qwen_http(ScriptedHttp::entry(
+                    200,
+                    r#"{"sub":"account","name":"Example","email":"example@example.test","member_type":"Pro"}"#,
+                )),
+                &ui,
+            )
+            .await,
+            ProviderAuthOutcome::Cancelled
+        );
+        assert_eq!(std::fs::read(agent.join("auth.json")).unwrap(), before);
     }
 
     #[tokio::test]

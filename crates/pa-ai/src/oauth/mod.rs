@@ -1,7 +1,4 @@
-//! The subscription OAuth flows: Codex, Anthropic, GitHub Copilot, and
-//! xAI. Transport-agnostic: the Codex flow issues its token requests
-//! through [`CodexHttp`], the other three through [`ProviderHttp`];
-//! tests script the endpoints.
+//! The subscription OAuth flows: Codex, Anthropic, GitHub Copilot, Qwen Code, and xAI. Transport-agnostic: the Codex flow issues its token requests through [`CodexHttp`], the others through [`ProviderHttp`]; tests script the endpoints.
 
 mod anthropic;
 mod anthropic_callback;
@@ -10,6 +7,7 @@ mod github_copilot;
 mod openai_codex;
 mod pkce;
 mod provider_http;
+mod qwen_subscription;
 mod types;
 mod xai;
 
@@ -29,6 +27,12 @@ pub use openai_codex::{
 pub use provider_http::{
     ProviderHttp, ProviderHttpMethod, ProviderHttpRequest, ProviderHttpResponse,
     ReqwestProviderHttp,
+};
+pub(crate) use qwen_subscription::qwen_subscription_user_agent;
+pub use qwen_subscription::{
+    check_qwen_subscription_membership, login_qwen_subscription, refresh_qwen_subscription_token,
+    QwenSubscriptionCredentials, LOGIN_CANCELLED as QWEN_SUBSCRIPTION_LOGIN_CANCELLED,
+    QWEN_SUBSCRIPTION_BASE_URL,
 };
 pub use types::{OAuthLoginUi, OAuthPrompt};
 pub use xai::{

@@ -5,7 +5,7 @@ The live model catalog subsystem: fetch layer, no-cold-start chain, strict schem
 ## Scope
 
 - Fetch layer: unauthenticated GET on the two catalog URLs; 5 s timeout, 8 MiB cap (content-length AND streaming), redirects refused, ETag `If-None-Match` with 304 snapshot reuse; `PI_OFFLINE` disables the network.
-- No-cold-start chain: validated last-good disk cache -> build-time bundled snapshot -> compiled fallback (42 transport tuples + 110 offline Prime Inference entries).
+- No-cold-start chain: validated last-good disk cache -> build-time bundled snapshot -> compiled fallback (43 transport tuples + 110 offline Prime Inference entries). Catalogs that predate native Qwen subscription support retain its compiled default until they list that provider.
 - Strict schemas: serde `deny_unknown_fields`, version gates (models `schemaVersion == 1`), skip-invalid for remote model refresh, compat validation per `api`. Unsupported future versions keep last-good silently, forever.
 - Transport pinning: every remote model must match a compiled `(provider, api, baseUrl)` tuple; catalog data never carries request headers.
 - Prime Inference: live credentialed fetch, scope-keyed disk cache (HMAC-SHA256 of key over team), 401/403 clears only that scope.

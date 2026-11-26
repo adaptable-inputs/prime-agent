@@ -133,3 +133,65 @@ async fn wire_caller_content_type_override_wins() {
         "the wire head: {head}"
     );
 }
+
+#[tokio::test]
+async fn qwen_subscription_rejects_noncanonical_destinations_before_network() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let local_url = format!("http://{}", listener.local_addr().unwrap());
+    let cancelled = tokio_util::sync::CancellationToken::new();
+    cancelled.cancel();
+    for base_url in [
+        local_url.as_str(),
+        "not a URL",
+        "http://api.qwen.ai/compatible-mode/v1",
+        "https://api.qwen.ai.evil.invalid/compatible-mode/v1",
+        "https://user:password@api.qwen.ai/compatible-mode/v1",
+        "https://api.qwen.ai:443/compatible-mode/v1",
+        "https://api.qwen.ai/compatible-mode/v1/",
+        "https://api.qwen.ai/compatible-mode/v1/chat/completions",
+        "https://api.qwen.ai/compatible-mode/v1/../other",
+        "https://api.qwen.ai/compatible-mode/v1?redirect=other",
+        "https://api.qwen.ai/compatible-mode/v1#other",
+    ] {
+        let mut model = completions_model("qwen3-coder-plus", "qwen-coder-subscription", 0.0, 0.0);
+        model["baseUrl"] = json!(base_url);
+        let model: Model = serde_json::from_value(model).unwrap();
+        let options = OpenAICompletionsOptions::from_base(crate::types::StreamOptions {
+            api_key: Some("serving-token".into()),
+            // Only the local fixture may reach the network if the guard regresses.
+            signal: (base_url != local_url).then(|| cancelled.clone()),
+            timeout_ms: Some(1_000),
+            ..Default::default()
+        });
+        let mut reader = stream_openai_completions(
+            &model,
+            &Context {
+                system_prompt: None,
+                messages: vec![],
+                tools: None,
+            },
+            Some(&options),
+        );
+        let event = reader.next_event().await.unwrap();
+        let AssistantMessageEvent::Error { error, .. } = event else {
+            panic!("the noncanonical gateway must be rejected: {base_url}");
+        };
+        assert_eq!(
+            (error.stop_reason, error.error_message),
+            (
+                StopReason::Error,
+                Some(
+                    "Qwen subscription inference requires https://api.qwen.ai/compatible-mode/v1"
+                        .into()
+                )
+            ),
+            "{base_url}"
+        );
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock,
+            "the fixed-destination check must precede network I/O"
+        );
+    }
+}

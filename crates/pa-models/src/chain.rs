@@ -154,7 +154,7 @@ impl ModelCatalog {
     /// the live Prime Inference snapshot for `credentials` when given.
     /// Never fails; never blocks on the network.
     pub fn resolve(&self, credentials: Option<&PrimeCredentials>) -> Vec<Model> {
-        let base = match self.provider_cache.get(PUBLIC_SCOPE) {
+        let mut base = match self.provider_cache.get(PUBLIC_SCOPE) {
             Some(remote) => {
                 // Step 1: validated last-good cache + the compiled offline
                 // Prime Inference entries (private/live entries come from
@@ -176,6 +176,19 @@ impl ModelCatalog {
                 None => self.compiled.as_ref().clone(),
             },
         };
+        // Catalog snapshots from before native Qwen sign-in must not hide its transport.
+        // Once the catalog lists the provider, its model list remains authoritative.
+        if !base
+            .iter()
+            .any(|model| model.provider == "qwen-coder-subscription")
+        {
+            base.extend(
+                self.compiled
+                    .iter()
+                    .filter(|model| model.provider == "qwen-coder-subscription")
+                    .cloned(),
+            );
+        }
         let live = credentials
             .and_then(|credentials| self.prime_inference.get(&credentials.as_inference()));
         match live {
@@ -345,8 +358,9 @@ mod tests {
         let models = catalog.resolve(None);
         assert_eq!(
             models.len(),
-            111,
-            "1 pinned bundled entry + 110 offline prime-inference entries"
+            1 + transports::prime_inference_offline_entries().len()
+                + pa_ai::models_generated::get_models("qwen-coder-subscription").len(),
+            "bundled entry + offline Prime Inference entries + Qwen subscription default"
         );
         assert!(models.iter().any(|m| m.id == "bundled-a"));
     }
@@ -376,6 +390,65 @@ mod tests {
         let models = catalog.resolve(None);
         assert!(models.iter().any(|m| m.id == "cached-a"));
         assert!(!models.iter().any(|m| m.id == "bundled-a"), "cache wins");
+    }
+
+    #[test]
+    fn qwen_subscription_stays_discoverable_with_an_older_catalog() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("models.bundled.json"),
+            models_json(&["bundled-a"]),
+        )
+        .unwrap();
+        let catalog = ModelCatalog::with_bundled_dir(None, Some(dir.path().into()));
+        assert!(catalog
+            .resolve(None)
+            .iter()
+            .any(|model| model.provider == "qwen-coder-subscription"));
+
+        let snapshot = json!({
+            "url": MODEL_CATALOG_URL,
+            "scope": PUBLIC_SCOPE,
+            "fetchedAt": 1,
+            "payload": serde_json::from_str::<serde_json::Value>(&models_json(&["cached-a"])).unwrap(),
+        });
+        std::fs::write(
+            dir.path().join(PROVIDER_CATALOG_CACHE_FILE),
+            serde_json::to_string(&snapshot).unwrap(),
+        )
+        .unwrap();
+        let catalog =
+            ModelCatalog::with_bundled_dir(Some(dir.path().into()), Some(dir.path().into()));
+        assert!(catalog
+            .resolve(None)
+            .iter()
+            .any(|model| model.provider == "qwen-coder-subscription"));
+
+        let mut model = pa_ai::models_generated::get_models("qwen-coder-subscription")[0].clone();
+        model.id = "account-model".to_string();
+        model.input = vec![pa_types::ai::ModelInput::Text];
+        let mut entry = serde_json::to_value(&model).unwrap();
+        // The remote schema never accepts request headers.
+        entry.as_object_mut().unwrap().remove("headers");
+        let snapshot = json!({
+            "url": MODEL_CATALOG_URL,
+            "scope": PUBLIC_SCOPE,
+            "fetchedAt": 2,
+            "payload": {"schemaVersion": 1, "models": [entry]},
+        });
+        std::fs::write(
+            dir.path().join(PROVIDER_CATALOG_CACHE_FILE),
+            serde_json::to_string(&snapshot).unwrap(),
+        )
+        .unwrap();
+        let catalog =
+            ModelCatalog::with_bundled_dir(Some(dir.path().into()), Some(dir.path().into()));
+        let models = catalog.resolve(None);
+        let qwen: Vec<_> = models
+            .into_iter()
+            .filter(|model| model.provider == "qwen-coder-subscription")
+            .collect();
+        assert_eq!(qwen, vec![model]);
     }
 
     #[test]

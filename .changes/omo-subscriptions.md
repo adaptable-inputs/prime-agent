@@ -1,0 +1,1 @@
+- Added optional Omo credential integration with named parallel Codex, Claude subscription, and Kimi accounts, plus independent Qwen subscription sign-in.

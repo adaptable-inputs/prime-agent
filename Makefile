@@ -1,4 +1,14 @@
 # Merge gate (AGENTS.md): fmt + clippy + test + release build must pass before every merge.
+.PHONY: test-subscriptions test-subscription-transports
+
+# Optional Omo integration: hermetic credential and OAuth tests require Bun.
+test-subscriptions:
+	bun test integrations/omo/prime-accounts.test.mjs integrations/omo/qwen-subscription.test.mjs
+
+# Installed Prime Agent transport integration; PRIME_AGENT_BIN can select a build.
+test-subscription-transports:
+	bun test integrations/omo/prime-transport.test.mjs
+
 check:
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings

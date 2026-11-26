@@ -40,6 +40,8 @@ Prime Agent is an open-source coding and research agent for general and long-run
 
 ## Install
 
+This fork includes optional [Omo subscription and named-account integration](integrations/omo/README.md) for Codex, Claude, Kimi, and Qwen. Install Prime Agent normally, then install the integration from this checkout.
+
 Install the latest stable version with the one-command installer:
 
 ```bash

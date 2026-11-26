@@ -153,8 +153,7 @@ pub fn scan_library(levels: &[Level]) -> Library {
         let folder_name = |folder: &Path| {
             folder
                 .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_default()
+                .map_or_else(Default::default, |name| name.to_string_lossy().into_owned())
         };
         for folder in folders
             .iter()

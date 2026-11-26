@@ -42,17 +42,14 @@ pub(crate) fn counter_line(notices: &[&InboxNoticeRow], theme: &Theme) -> Line {
     match new {
         Some(0) => {}
         Some(new) => {
-            let breakdown = classes
-                .filter(|all| !all.is_empty())
-                .map(|all| {
-                    let listed = all
-                        .iter()
-                        .map(|(class, count)| format!("{count} {class}"))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    format!(" ({listed})")
-                })
-                .unwrap_or_default();
+            let breakdown = classes.filter(|all| !all.is_empty()).map_or_default(|all| {
+                let listed = all
+                    .iter()
+                    .map(|(class, count)| format!("{count} {class}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(" ({listed})")
+            });
             parts.push(format!("{new} new{breakdown}"));
         }
         None => parts.push("new messages".to_string()),

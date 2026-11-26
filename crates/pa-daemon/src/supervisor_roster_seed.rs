@@ -289,12 +289,10 @@ impl SeededRosterEntry {
         let child = Path::new(&edge.child);
         let persisted_session_id = child
             .file_stem()
-            .map(|stem| stem.to_string_lossy().to_string())
-            .unwrap_or_default();
+            .map_or_default(|stem| stem.to_string_lossy().to_string());
         let dirname = child
             .parent()
-            .map(|dir| dir.to_string_lossy().to_string())
-            .unwrap_or_default();
+            .map_or_default(|dir| dir.to_string_lossy().to_string());
         let mut summary = json!({
             "id": persisted_session_id,
             "lifecycle": "live",
@@ -333,8 +331,7 @@ impl SeededRosterEntry {
             .summary
             .get("sessionFile")
             .and_then(Value::as_str)
-            .map(str::to_string)
-            .unwrap_or_default();
+            .map_or_default(str::to_string);
         if hydrate_summary_display(&mut self.summary, PathBuf::from(file)).await {
             self.seeded_cwd = false;
         }
@@ -619,8 +616,7 @@ pub(crate) mod tests {
             session_dir: Some(
                 session_file
                     .parent()
-                    .map(|dir| dir.to_string_lossy().to_string())
-                    .unwrap_or_default(),
+                    .map_or_default(|dir| dir.to_string_lossy().to_string()),
             ),
             telemetry_disabled: Some(true),
             created_at: "t".to_string(),
@@ -833,8 +829,14 @@ pub(crate) mod tests {
         );
         assert_eq!(row.summary["thinkingLevel"], json!("high"));
         let reseeded = supervisor.seed_roster_family_edges(&root_file).await;
-        assert!(reseeded.is_empty());
-        assert!(drain_roster_pushes(&mut events).is_empty());
+        assert_eq!(
+            reseeded,
+            [] as [pa_types::daemon::agent_roster::AgentRosterEntry; 0]
+        );
+        assert_eq!(
+            drain_roster_pushes(&mut events),
+            [] as [serde_json::Value; 0]
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

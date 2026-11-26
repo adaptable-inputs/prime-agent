@@ -1057,8 +1057,7 @@ impl Supervisor {
                         .to_string();
                     let parent_session_id = std::path::Path::new(&parent_session_path)
                         .file_stem()
-                        .map(|stem| stem.to_string_lossy().into_owned())
-                        .unwrap_or_default();
+                        .map_or_default(|stem| stem.to_string_lossy().into_owned());
                     (
                         row.summary
                             .get("rlmDepth")

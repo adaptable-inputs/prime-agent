@@ -268,8 +268,7 @@ pub fn serialize_conversation(messages: &[AgentMessage]) -> String {
                     // back to the name-only label.
                     let index_suffix = tool_call_indices
                         .get(&result.tool_call_id)
-                        .map(|index| format!(" #{index}"))
-                        .unwrap_or_default();
+                        .map_or_default(|index| format!(" #{index}"));
                     let label = if result.is_error {
                         format!("[Tool result ({}, error){index_suffix}]", result.tool_name)
                     } else {
@@ -356,7 +355,7 @@ mod tests {
         extract_file_ops_from_message(&message, &mut ops);
         assert!(ops.edited.contains("/src/main.rs"));
         let (read, modified) = compute_file_lists(&ops);
-        assert!(read.is_empty());
+        assert_eq!(read, Vec::<String>::new());
         assert_eq!(modified, vec!["/src/main.rs".to_string()]);
         assert!(format_file_operations(&read, &modified).contains("<modified-files>"));
     }
@@ -527,7 +526,7 @@ mod tests {
             ..Default::default()
         };
         let (read_files, modified_files) = compute_file_lists(&file_ops);
-        assert!(read_files.is_empty());
+        assert_eq!(read_files, Vec::<String>::new());
         assert_eq!(modified_files, modified_all[..162].to_vec());
 
         let file_ops = FileOperations {
@@ -536,7 +535,7 @@ mod tests {
         };
         let (read_files, modified_files) = compute_file_lists(&file_ops);
         assert_eq!(read_files, vec!["a.rs".to_string()]);
-        assert!(modified_files.is_empty());
+        assert_eq!(modified_files, Vec::<String>::new());
     }
 
     #[test]

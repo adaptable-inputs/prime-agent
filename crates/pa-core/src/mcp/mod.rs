@@ -845,8 +845,7 @@ impl McpManager {
                         .data
                         .get("query")
                         .and_then(Value::as_str)
-                        .map(str::trim)
-                        .unwrap_or_default()
+                        .map_or_default(str::trim)
                         .to_string();
                     if query.is_empty() {
                         return Err(anyhow::anyhow!(
@@ -1157,7 +1156,10 @@ mod tests {
         let linear = status.iter().find(|row| row.server == "linear").unwrap();
         assert!(!linear.enabled);
         assert!(linear.uses_oauth);
-        assert!(manager.get_enabled_persistent_generic_servers().is_empty());
+        assert_eq!(
+            manager.get_enabled_persistent_generic_servers(),
+            Vec::<String>::new()
+        );
     }
 
     #[test]

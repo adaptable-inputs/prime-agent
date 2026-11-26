@@ -34,7 +34,7 @@ pub enum Scenario {
     SessionSwitch,
     /// The `@` keystroke -> the first completion menu row.
     AtCompletion,
-    /// `--resume <huge session>`, then each PageUp -> the first frame scrolled
+    /// `--resume <huge session>`, then each `PageUp` -> the first frame scrolled
     /// up a page (one sample per page).
     TranscriptPaging,
     /// `--resume <huge session>`, then the top key -> the session's first

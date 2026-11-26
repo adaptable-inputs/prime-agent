@@ -86,14 +86,13 @@ pub(crate) fn injected_prompt_row(
             skills: details
                 .get("skills")
                 .and_then(Value::as_array)
-                .map(|names| {
+                .map_or_default(|names| {
                     names
                         .iter()
                         .filter_map(Value::as_str)
                         .map(str::to_string)
                         .collect()
-                })
-                .unwrap_or_default(),
+                }),
         },
         // The dispatch routes only this module's four kinds here; every
         // other custom type (the RLM child status notices included — they
@@ -288,7 +287,7 @@ mod tests {
         };
         let rows = render_injected_prompt(&row, Detail::Overview, &theme(), 60, true);
         assert_eq!(rows.len(), 2, "{rows:?}");
-        assert!(rows[0].is_empty());
+        assert_eq!(rows[0], [] as [Span; 0]);
         assert_eq!(
             flat(&rows[1]).trim_end(),
             " \u{25f7} Heartbeat prompt \u{b7} every 10m"

@@ -305,7 +305,7 @@ mod tests {
         )
         .await;
         assert!(error.is_err());
-        assert!(sink.is_empty());
+        assert_eq!(sink, Vec::<u8>::new());
     }
 
     #[test]

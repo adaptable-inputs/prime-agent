@@ -360,14 +360,9 @@ impl ReplKernelManager {
         let stop_signal = if opts.internal || hard_bounded {
             opts.signal.clone().unwrap_or_default()
         } else {
-            opts.signal
-                .as_ref()
-                .map(|signal| {
-                    crate::kernel::cancellation::AbortSignal::from_token(
-                        signal.token().child_token(),
-                    )
-                })
-                .unwrap_or_default()
+            opts.signal.as_ref().map_or_default(|signal| {
+                crate::kernel::cancellation::AbortSignal::from_token(signal.token().child_token())
+            })
         };
         let execution = Arc::new(ActiveExecution {
             request_id: request_id.clone(),

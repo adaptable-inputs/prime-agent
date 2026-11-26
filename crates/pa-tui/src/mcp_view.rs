@@ -242,23 +242,21 @@ impl McpView {
         let services: Vec<McpServiceRow> = data
             .get("services")
             .and_then(Value::as_array)
-            .map(|entries| {
+            .map_or_default(|entries| {
                 entries
                     .iter()
                     .filter_map(McpServiceRow::from_value)
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         let credentials: Vec<McpCredentialRow> = data
             .get("credentials")
             .and_then(Value::as_array)
-            .map(|entries| {
+            .map_or_default(|entries| {
                 entries
                     .iter()
                     .filter_map(McpCredentialRow::from_value)
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         // The catalog cards own the service rows when the daemon serves
         // them (TS `buildPluginViews` already includes user-declared
         // servers); a daemon that predates the catalog surface serves only
@@ -268,14 +266,13 @@ impl McpView {
         let mut rows: Vec<McpRow> = if services.is_empty() {
             data.get("connections")
                 .and_then(Value::as_array)
-                .map(|entries| {
+                .map_or_default(|entries| {
                     entries
                         .iter()
                         .filter_map(McpServiceRow::from_roster_entry)
                         .map(McpRow::Service)
                         .collect()
                 })
-                .unwrap_or_default()
         } else {
             services.into_iter().map(McpRow::Service).collect()
         };
@@ -643,9 +640,7 @@ fn hint_line(theme: &Theme, width: usize, kb: &KeybindingsManager, action: Optio
     let close_key = kb
         .first_key("tui.select.cancel")
         .map_or_else(|| "Esc".to_string(), |key| format_key_text(&key));
-    let action_segment = action
-        .map(|action| format!("{select_key} {action} \u{b7} "))
-        .unwrap_or_default();
+    let action_segment = action.map_or_default(|action| format!("{select_key} {action} \u{b7} "));
     let hint = if width >= 70 {
         let navigation = format!(
             "{}/{} navigate \u{b7} ",

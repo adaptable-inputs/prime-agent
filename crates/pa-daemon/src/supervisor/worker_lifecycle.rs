@@ -311,10 +311,8 @@ impl Supervisor {
         // A child's RLM identity rides the durable create command too, so a
         // respawned or adopted child stays identifiable for ledger appends.
         if let Some(metadata) = &runtime_metadata {
-            for key in ["rlmChildId"] {
-                if let Some(value) = metadata.get(key) {
-                    durable_rest.insert(key.to_string(), value.clone());
-                }
+            if let Some(value) = metadata.get("rlmChildId") {
+                durable_rest.insert("rlmChildId".to_string(), value.clone());
             }
         }
         // The whole subagent runtime identity rides the durable create command
@@ -453,8 +451,7 @@ impl Supervisor {
                             "create refused: session file {session_path} is already active{} — {headline}",
                             active_session_id
                                 .as_deref()
-                                .map(|id| format!(" in {id}"))
-                                .unwrap_or_default(),
+                                .map_or_default(|id| format!(" in {id}")),
                         )),
                         _ => self.log_line(&format!("create refused — {headline}")),
                     }
@@ -559,8 +556,7 @@ impl Supervisor {
                     || {
                         Path::new(&session_file)
                             .parent()
-                            .map(|dir| dir.to_string_lossy().to_string())
-                            .unwrap_or_default()
+                            .map_or_default(|dir| dir.to_string_lossy().to_string())
                     },
                     str::to_string,
                 );
@@ -595,8 +591,7 @@ impl Supervisor {
             child_id: child_id.clone(),
             session_name: display
                 .as_ref()
-                .map(|entry| entry.session_name.clone())
-                .unwrap_or_default(),
+                .map_or_default(|entry| entry.session_name.clone()),
             session_dir,
             session_file: display
                 .as_ref()

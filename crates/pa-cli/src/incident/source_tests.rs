@@ -247,7 +247,10 @@ fn reports_missing_logs_clearly() {
             .expect("the window resolves")
             .is_none());
         let source = read_incident_log_entries();
-        assert!(source.entries.is_empty());
+        assert_eq!(
+            source.entries,
+            [] as [pa_types::incident::IncidentLogEntry; 0]
+        );
         assert_eq!(source.scanned_count, 0);
         assert_eq!(source.source, "");
     });

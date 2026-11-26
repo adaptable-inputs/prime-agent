@@ -48,8 +48,7 @@ fn value_str<'a>(value: &'a Value, key: &str) -> Option<&'a str> {
 fn file_stem(path: &str) -> String {
     Path::new(path)
         .file_stem()
-        .map(|stem| stem.to_string_lossy().to_string())
-        .unwrap_or_default()
+        .map_or_default(|stem| stem.to_string_lossy().to_string())
 }
 
 /// One roster session row, assembled from the worker's snapshot and the descriptor.
@@ -586,7 +585,10 @@ mod tests {
         assert!(root.should_resume);
         assert!(root.queue.actions.get("steering").is_some());
         // No next-turn lane: pending prompts live in the lane snapshot.
-        assert!(root.queue.next_turn.is_empty());
+        assert_eq!(
+            root.queue.next_turn,
+            [] as [pa_types::session::CustomMessage; 0]
+        );
         let child = &roster.sessions[1];
         assert_eq!(child.kind, UpdateRosterSessionKind::Subagent);
         assert_eq!(child.parent_session_id.as_deref(), Some("p1"));

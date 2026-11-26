@@ -354,17 +354,14 @@ pub(crate) fn parse_run(run: &Value) -> Option<FactoryRunSnapshot> {
     let states = machine
         .get("states")
         .and_then(Value::as_array)
-        .map(|states| states.iter().filter_map(FactoryState::parse).collect())
-        .unwrap_or_default();
+        .map_or_default(|states| states.iter().filter_map(FactoryState::parse).collect());
     let transitions = machine
         .get("transitions")
         .and_then(Value::as_array)
-        .map(|rows| rows.iter().filter_map(FactoryTransition::parse).collect())
-        .unwrap_or_default();
+        .map_or_default(|rows| rows.iter().filter_map(FactoryTransition::parse).collect());
     let last_fired = get_either(run, "last_fired", "lastFired")
         .and_then(Value::as_array)
-        .map(|rows| rows.iter().filter_map(FactoryEdge::parse).collect())
-        .unwrap_or_default();
+        .map_or_default(|rows| rows.iter().filter_map(FactoryEdge::parse).collect());
     let mut nodes = std::collections::HashMap::new();
     for node in run
         .get("nodes")
@@ -555,7 +552,7 @@ impl FactoryView {
     }
 
     fn rows(&self) -> Vec<FactoryRow> {
-        self.focused_run().map(Self::run_rows).unwrap_or_default()
+        self.focused_run().map_or_default(Self::run_rows)
     }
 
     /// One run's walk rows: its header, then every state in declared
@@ -600,8 +597,7 @@ impl FactoryView {
             .map(|row| row.run_id.as_str())
             .and_then(|run_id| self.runs.iter().find(|run| run.run_id == run_id))
             .or_else(|| self.runs.first())
-            .map(Self::run_rows)
-            .unwrap_or_default();
+            .map_or_default(Self::run_rows);
         self.selected = match previous {
             Some(row) if candidates.contains(&row) => Some(row),
             Some(row) if candidates.contains(&FactoryRow::header(&row.run_id)) => {
@@ -1040,11 +1036,7 @@ impl FactoryView {
         };
         header.push(theme.fg_span(run_state_color(run.state.as_deref()), state_text));
         // The stats tail: elapsed, budget, parallel, instances.
-        let running = run
-            .usage
-            .as_ref()
-            .map(|usage| usage.running)
-            .unwrap_or_default();
+        let running = run.usage.as_ref().map_or_default(|usage| usage.running);
         let stats = vec![
             Span::raw("  "),
             theme.fg_span(ThemeColor::Muted, Self::stats_line(run, running)),

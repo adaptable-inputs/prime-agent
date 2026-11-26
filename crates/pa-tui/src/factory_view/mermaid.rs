@@ -105,9 +105,7 @@ impl Graph {
                 subagent: None,
                 python: None,
                 model: None,
-                label: Some(decode_label(
-                    labels.get(id).map(String::as_str).unwrap_or_default(),
-                )),
+                label: Some(decode_label(labels.get(id).map_or_default(String::as_str))),
             })
             .collect();
         let transitions = self

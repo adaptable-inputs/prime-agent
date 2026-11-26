@@ -26,4 +26,4 @@ No provider logic, no session logic, no UI. Beyond pure data helpers and the pla
 Everything in this crate is deliberately `pub` - it is the cross-crate contract. Unknown fields survive round-trips via catch-all maps so schema revisions stay compatible.
 
 ## Depends on
-serde, serde_json, thiserror, anyhow, tokio, regex (the incident classifier's TS log-message patterns; see the `incident` scope entry). No workspace crates.
+serde, serde_json, anyhow, tokio, regex (the incident classifier's TS log-message patterns; see the `incident` scope entry). No workspace crates.

@@ -61,9 +61,7 @@ pub(crate) fn refinement_outcome_entries(message: &Value, details: &Value) -> Ve
             .get("scope")
             .and_then(Value::as_str)
             .unwrap_or("local"),
-        rollback_of
-            .map(|id| format!(" \u{b7} rollback of {id}"))
-            .unwrap_or_default()
+        rollback_of.map_or_default(|id| format!(" \u{b7} rollback of {id}"))
     );
     vec![ChatEntry::RefinementOutcome(Box::new(
         RefinementOutcomeRow {
@@ -199,8 +197,7 @@ fn refinement_edit_row(edit: &Value, fallback_scope: &str) -> RefinementEditRow 
         let error = edit
             .get("error")
             .and_then(Value::as_str)
-            .map(|error| format!(": {error}"))
-            .unwrap_or_default();
+            .map_or_default(|error| format!(": {error}"));
         vec![LabelPart {
             text: format!("Failed to {action} {scope} {kind} `{id}`{error}"),
             color: Some(ThemeColor::Error),
@@ -656,7 +653,7 @@ mod tests {
             edits: Vec::new(),
         };
         let rows = render_refinement_outcome(&row, Detail::Overview, &theme(), 60);
-        assert!(rows[0].is_empty());
+        assert_eq!(rows[0], [] as [Span; 0]);
         assert_eq!(flat(&rows[1]).trim_end(), " \u{25c6} Harness refined");
         assert_eq!(
             rows[1][1],

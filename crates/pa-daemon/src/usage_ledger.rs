@@ -523,10 +523,19 @@ mod tests {
 
         // The worker's report of a row the reconcile already recorded, and
         // its duplicate.
-        assert!(ledger.record("child", "c1", usage(0.5)).unwrap().is_empty());
-        assert!(ledger.record("child", "c1", usage(0.5)).unwrap().is_empty());
+        assert_eq!(
+            ledger.record("child", "c1", usage(0.5)).unwrap(),
+            [] as [std::string::String; 0]
+        );
+        assert_eq!(
+            ledger.record("child", "c1", usage(0.5)).unwrap(),
+            [] as [std::string::String; 0]
+        );
         // A reconcile racing the report finds nothing to add.
-        assert!(ledger.reconcile(&home.child).unwrap().is_empty());
+        assert_eq!(
+            ledger.reconcile(&home.child).unwrap(),
+            [] as [std::string::String; 0]
+        );
         assert!((root_total(&home, &ledger) - 1.5).abs() < 1e-9);
 
         // A crash between the append and the report: the reconcile adds the
@@ -536,11 +545,14 @@ mod tests {
             ledger.reconcile(&home.child).unwrap(),
             vec!["child".to_string(), "root".to_string()]
         );
-        assert!(ledger.reconcile(&home.child).unwrap().is_empty());
-        assert!(ledger
-            .record("child", "c2", usage(0.25))
-            .unwrap()
-            .is_empty());
+        assert_eq!(
+            ledger.reconcile(&home.child).unwrap(),
+            [] as [std::string::String; 0]
+        );
+        assert_eq!(
+            ledger.record("child", "c2", usage(0.25)).unwrap(),
+            [] as [std::string::String; 0]
+        );
         assert!((root_total(&home, &ledger) - 1.75).abs() < 1e-9);
 
         // A crash mid-append tears the shard's last line: the restarted
@@ -585,11 +597,17 @@ mod tests {
         .unwrap();
         drop(file);
         let ledger = UsageLedger::new(&home.agent, Arc::clone(&home.spawns));
-        assert!(!ledger.reconcile_family(&home.root).unwrap().is_empty());
+        assert_ne!(
+            ledger.reconcile_family(&home.root).unwrap(),
+            [] as [std::string::String; 0]
+        );
         let spend = ledger.spend(&home.root);
         assert!((spend.own.cost.total.as_f64() - 1.0).abs() < 1e-9);
         assert!((spend.total.cost.total.as_f64() - 1.3).abs() < 1e-9);
-        assert!(ledger.reconcile_family(&home.root).unwrap().is_empty());
+        assert_eq!(
+            ledger.reconcile_family(&home.root).unwrap(),
+            [] as [std::string::String; 0]
+        );
         let restarted = UsageLedger::new(&home.agent, Arc::clone(&home.spawns));
         assert!((root_total(&home, &restarted) - 1.3).abs() < 1e-9);
         let shard =
@@ -664,7 +682,10 @@ mod tests {
         ledger.reconcile_family(&home.root).unwrap();
         assert!((root_total(&home, &ledger) - 1.875).abs() < 1e-9);
         assert_eq!(input_tokens(&ledger), 140);
-        assert!(ledger.reconcile_family(&home.root).unwrap().is_empty());
+        assert_eq!(
+            ledger.reconcile_family(&home.root).unwrap(),
+            [] as [std::string::String; 0]
+        );
         let restarted = UsageLedger::new(&home.agent, Arc::clone(&home.spawns));
         assert!((root_total(&home, &restarted) - 1.875).abs() < 1e-9);
         assert_eq!(input_tokens(&restarted), 140);

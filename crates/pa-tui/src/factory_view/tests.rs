@@ -2275,7 +2275,10 @@ fn a_zero_item_node_entry_keeps_its_settle_without_an_instance() {
     });
     let view = node::NodeView::parse_reply("run-abc12345", "fan", &data)
         .expect("the zero-item entry parses");
-    assert!(view.instances.is_empty());
+    assert_eq!(
+        view.instances,
+        [] as [crate::factory_view::node::NodeInstance; 0]
+    );
     let document = view.document.as_ref().expect("the settle is shown");
     assert_eq!(document.entry, Some(3));
     assert_eq!(document.index, None);
@@ -2320,7 +2323,10 @@ fn a_never_entered_node_state_renders_without_fabricating_an_entry() {
         view.error.is_none(),
         "a never-entered state is not an error"
     );
-    assert!(view.instances.is_empty());
+    assert_eq!(
+        view.instances,
+        [] as [crate::factory_view::node::NodeInstance; 0]
+    );
     assert!(view.document.is_none(), "no entry is fabricated");
     assert_eq!(view.selected_selector(), None);
     assert_eq!(view.document_selector(), None);
@@ -2588,7 +2594,7 @@ fn narrow_file_markdown_scroll_uses_the_rendered_width() {
         .first_key("tui.select.pageDown")
         .expect("the page-down binding");
     assert!(view.handle_key("enter", &kb, 12));
-    assert!(!view.render(&theme, 80, &kb, 12).is_empty());
+    assert_ne!(view.render(&theme, 80, &kb, 12), [] as [Vec<Span>; 0]);
     for _ in 0..40 {
         assert!(view.handle_key(&page_down, &kb, 12));
     }

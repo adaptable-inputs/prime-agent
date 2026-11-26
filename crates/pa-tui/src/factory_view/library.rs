@@ -77,8 +77,7 @@ impl LibraryMachine {
 pub fn parse_library_machines(data: &Value) -> Vec<LibraryMachine> {
     data.get("machines")
         .and_then(Value::as_array)
-        .map(|machines| machines.iter().filter_map(LibraryMachine::parse).collect())
-        .unwrap_or_default()
+        .map_or_default(|machines| machines.iter().filter_map(LibraryMachine::parse).collect())
 }
 
 /// The list reply's warnings: machines that failed to load, by path.
@@ -86,14 +85,13 @@ pub fn parse_library_machines(data: &Value) -> Vec<LibraryMachine> {
 pub fn parse_library_warnings(data: &Value) -> Vec<String> {
     data.get("warnings")
         .and_then(Value::as_array)
-        .map(|warnings| {
+        .map_or_default(|warnings| {
             warnings
                 .iter()
                 .filter_map(Value::as_str)
                 .map(crate::menu_panel::scrub_controls)
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// Whether a reply is the library list shape at all: a reply without the
@@ -195,7 +193,7 @@ fn row_has_live_backing(row: &Value) -> bool {
 pub fn parse_overview_runs(data: &Value) -> Vec<LibraryRun> {
     data.get("runs")
         .and_then(Value::as_array)
-        .map(|runs| {
+        .map_or_default(|runs| {
             runs.iter()
                 .filter_map(|row| {
                     let snapshot = parse_run(row)?;
@@ -224,7 +222,6 @@ pub fn parse_overview_runs(data: &Value) -> Vec<LibraryRun> {
                 })
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// The overview reply's warnings: owners whose records or live graphs
@@ -233,14 +230,13 @@ pub fn parse_overview_runs(data: &Value) -> Vec<LibraryRun> {
 pub fn parse_overview_warnings(data: &Value) -> Vec<String> {
     data.get("warnings")
         .and_then(Value::as_array)
-        .map(|warnings| {
+        .map_or_default(|warnings| {
             warnings
                 .iter()
                 .filter_map(Value::as_str)
                 .map(crate::menu_panel::scrub_controls)
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// One selectable row, by identity: a machine, or one run — an

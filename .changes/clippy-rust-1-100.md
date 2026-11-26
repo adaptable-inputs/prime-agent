@@ -1,0 +1,1 @@
+- Fixed build warnings on current Rust toolchains without changing runtime behavior.

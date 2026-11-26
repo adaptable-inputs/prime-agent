@@ -1008,7 +1008,7 @@ fn background_shell_owes_the_continuation_and_arms_the_fallback_wake() {
     engine
         .runtime
         .block_on(async { engine.goal_children_settled().await });
-    assert!(active_wakes().is_empty());
+    assert_eq!(active_wakes(), [] as [pa_core::cron::AgentCronJob; 0]);
     // The shell settles: the same consult delivers the owed continuation
     // and the successful mint retires the armed wake.
     engine.set_test_probes(Some(std::sync::Arc::new(|| 0)), None);

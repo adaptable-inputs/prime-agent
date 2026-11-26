@@ -151,8 +151,7 @@ fn offline_daemon_serves_the_bundled_catalog_fallback() {
         std::process::id() * 1000
             + std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.subsec_nanos())
-                .unwrap_or_default()
+                .map_or_default(|d| d.subsec_nanos())
     ));
     std::fs::create_dir_all(&dir).expect("temp dir");
     let agent_dir = dir.join("agent");

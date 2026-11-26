@@ -155,7 +155,7 @@ async fn kernel_state_persists_across_cells_and_turns() {
     assert_eq!(error.status, ExecuteStatus::Error);
     let kernel_error = error.error.expect("error cell carries the kernel error");
     assert_eq!(kernel_error.ename, "ZeroDivisionError");
-    assert!(!kernel_error.traceback.is_empty());
+    assert_ne!(kernel_error.traceback, Vec::<String>::new());
     let after = execute(&manager, "x").await;
     assert_eq!(after.result.as_deref(), Some("21"));
 
@@ -274,8 +274,7 @@ async fn host_requests_round_trip_to_registered_handlers() {
     let message = error
         .error
         .as_ref()
-        .map(|kernel_error| kernel_error.evalue.as_str())
-        .unwrap_or_default();
+        .map_or_default(|kernel_error| kernel_error.evalue.as_str());
     assert!(
         message.contains("not available in this session"),
         "expected the TS unavailable-handler error, got stderr {:?} error {:?}",

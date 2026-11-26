@@ -124,8 +124,7 @@ fn attach_transitions(transitions: &[Value], order: &mut [StateOut], problems: &
         if let Some(when) = transition.get("when") {
             let from = transition
                 .get("from")
-                .map(Value::to_string)
-                .unwrap_or_default();
+                .map_or_else(Default::default, Value::to_string);
             problems.push(format!(
                 "the guarded transition {from} -> {to} (when {when}) has no machine.toml form: switch on an enum output with route, or compute the choice in a python state"
             ));
@@ -196,8 +195,7 @@ fn convert_state(
     let inputs: Vec<&Value> = state
         .get("inputs")
         .and_then(Value::as_array)
-        .map(|items| items.iter().collect())
-        .unwrap_or_default();
+        .map_or_else(Default::default, |items| items.iter().collect());
     let input_names: Vec<&str> = inputs
         .iter()
         .filter_map(|input| input.get("name").and_then(Value::as_str))
@@ -355,18 +353,18 @@ fn dag_to_machine(spec: &Value) -> Result<Value, Vec<String>> {
             .remove("depends_on")
             .and_then(|deps| deps.as_array().cloned())
             .unwrap_or_default();
-        let sources = state
-            .get("inputs")
-            .and_then(Value::as_array)
-            .map(|inputs| {
-                inputs
-                    .iter()
-                    .filter_map(|input| input.get("from").and_then(Value::as_str))
-                    .filter_map(|from| from.split_once('.'))
-                    .map(|(node, _)| Value::String(node.to_string()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+        let sources =
+            state
+                .get("inputs")
+                .and_then(Value::as_array)
+                .map_or_else(Default::default, |inputs| {
+                    inputs
+                        .iter()
+                        .filter_map(|input| input.get("from").and_then(Value::as_str))
+                        .filter_map(|from| from.split_once('.'))
+                        .map(|(node, _)| Value::String(node.to_string()))
+                        .collect::<Vec<_>>()
+                });
         for dep in declared.iter().chain(&sources).filter_map(Value::as_str) {
             if !deps.iter().any(|seen| seen == dep) {
                 deps.push(dep.to_string());

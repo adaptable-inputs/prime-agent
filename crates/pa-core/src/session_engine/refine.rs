@@ -79,14 +79,13 @@ pub fn auto_refine_instructions(reason: &str, review: &AutoRefineReview) -> Stri
     let detail = review
         .instructions
         .as_deref()
-        .map(|instructions| {
+        .map_or_default(|instructions| {
             format!(
                 "
 
 Reviewer instructions: {instructions}"
             )
-        })
-        .unwrap_or_default();
+        });
     format!(
         "Automatic refine review triggered by {reason}. {AUTO_REFINE_GUIDANCE} Reviewer rationale: {}{detail}",
         review.rationale
@@ -124,8 +123,7 @@ pub struct CommittedRefinement {
 pub(crate) fn now_millis() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or_default()
+        .map_or_default(|duration| duration.as_millis() as u64)
 }
 
 #[must_use]
@@ -1036,7 +1034,6 @@ impl AgentSession {
 }
 
 /// The default model seam over pa-ai completion.
-#[must_use]
 pub fn default_refiner_call(
     api_key: Option<String>,
     headers: Option<std::collections::BTreeMap<String, String>>,
@@ -1800,7 +1797,7 @@ Reviewer instructions: record it"
         let mut parent: Option<String> = None;
         for i in 0..5 {
             let id = format!("u{i}");
-            rows.push(serde_json::json!({"type":"message","id":id.clone(),"parentId":parent,"message":{"role":"user","content":format!("hello {i}"),"timestamp":0}}));
+            rows.push(serde_json::json!({"type":"message","id":id,"parentId":parent,"message":{"role":"user","content":format!("hello {i}"),"timestamp":0}}));
             parent = Some(id);
         }
         rows.push(serde_json::json!({"type":"custom","id":"audit","parentId":parent,"customType":"prime-agent.refinement","data":{"id":"refine_0","summary":"seed","rationale":"seeded rationale","expectedOutcome":"seeded outcome","appliedEdits":[],"harnessStatePath":""}}));
@@ -1891,7 +1888,10 @@ Reviewer instructions: record it"
             )
             .await
             .unwrap_or_else(|error| panic!("'{leg}' leg failed: {error:#}"));
-            assert!(result.applied_edits.is_empty());
+            assert_eq!(
+                result.applied_edits,
+                Vec::<crate::refinement::AppliedRefinementEdit>::new()
+            );
             let got = captured_requests.lock().unwrap().clone();
             assert_eq!(got.len(), 1, "'{leg}' leg: exactly one refiner call");
             captured.push(got[0].clone());

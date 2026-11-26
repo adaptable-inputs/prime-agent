@@ -803,7 +803,7 @@ mod tests {
             vec!["zai", "prime-inference"]
         );
         let current = model("anthropic", "claude-sonnet-4-5", "Sonnet");
-        assert!(failover_candidates(&current, &catalog).is_empty());
+        assert_eq!(failover_candidates(&current, &catalog), Vec::<Model>::new());
         // The current provider itself is never a candidate, even when the
         // catalog carries a second entry for it.
         let current = model("zai", "z-ai/glm-5.3", "GLM");

@@ -157,7 +157,7 @@ mod tests {
         // Pins the table against a wedged state (invariant I1: no state without a watchdog exit).
         for state in ALL {
             if state.is_terminal() {
-                assert!(state.successors().is_empty());
+                assert_eq!(state.successors(), &[]);
             } else {
                 assert!(
                     !state.successors().is_empty(),

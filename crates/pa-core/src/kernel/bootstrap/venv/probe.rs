@@ -244,8 +244,7 @@ pub(super) fn has_prime_agent_runtime_memoized(
 pub fn invalidate_runtime_probe_cache() {
     let tracked: Vec<PathBuf> = lock_probe_memo()
         .take()
-        .map(|memo| memo.values().cloned().collect())
-        .unwrap_or_default();
+        .map_or_default(|memo| memo.values().cloned().collect());
     for path in tracked {
         super::super::disk_memo::disk_memo_invalidate(&path);
     }

@@ -237,7 +237,7 @@ pub fn resolve_acp_mcp_servers(
         if names.contains(&name) {
             return Err(format!("duplicate MCP server name: {name}"));
         }
-        names.insert(name.clone());
+        names.insert(name);
         match parsed {
             WireServer::Unsupported { name, kind } => {
                 return Err(format!(
@@ -355,21 +355,21 @@ mod tests {
             Path::new("/tmp"),
         )
         .unwrap();
-        assert!(servers.is_empty());
+        assert_eq!(servers, [] as [pa_core::mcp::AcpMcpServerConfig; 0]);
         // An invalid env item fails the whole entry.
         let servers = resolve_acp_mcp_servers(
             &[json!({ "name": "b", "type": "stdio", "command": "cat", "args": [], "env": [{"name": 1, "value": "x"}] })],
             Path::new("/tmp"),
         )
         .unwrap();
-        assert!(servers.is_empty());
+        assert_eq!(servers, [] as [pa_core::mcp::AcpMcpServerConfig; 0]);
         // http without headers: dropped.
         let servers = resolve_acp_mcp_servers(
             &[json!({ "name": "c", "type": "http", "url": "https://user:pw@x.invalid" })],
             Path::new("/tmp"),
         )
         .unwrap();
-        assert!(servers.is_empty());
+        assert_eq!(servers, [] as [pa_core::mcp::AcpMcpServerConfig; 0]);
         // http with command/args/env still parses as http (union order).
         let servers = resolve_acp_mcp_servers(
             &[json!({ "name": "h2", "type": "http", "url": "https://x.invalid", "headers": [], "command": "cat", "args": [], "env": [] })],

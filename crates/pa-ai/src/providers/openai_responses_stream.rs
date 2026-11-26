@@ -517,7 +517,7 @@ impl<'a> ResponsesStreamProcessor<'a> {
                                 let summary_text = item
                                     .get("summary")
                                     .and_then(|summary| summary.as_array())
-                                    .map(|parts| {
+                                    .map_or_default(|parts| {
                                         parts
                                             .iter()
                                             .filter_map(|part| {
@@ -525,12 +525,11 @@ impl<'a> ResponsesStreamProcessor<'a> {
                                             })
                                             .collect::<Vec<_>>()
                                             .join("\n\n")
-                                    })
-                                    .unwrap_or_default();
+                                    });
                                 let content_text = item
                                     .get("content")
                                     .and_then(|content| content.as_array())
-                                    .map(|parts| {
+                                    .map_or_default(|parts| {
                                         parts
                                             .iter()
                                             .filter_map(|part| {
@@ -538,8 +537,7 @@ impl<'a> ResponsesStreamProcessor<'a> {
                                             })
                                             .collect::<Vec<_>>()
                                             .join("\n\n")
-                                    })
-                                    .unwrap_or_default();
+                                    });
                                 let final_text = if !summary_text.is_empty() {
                                     summary_text
                                 } else if !content_text.is_empty() {
@@ -572,7 +570,7 @@ impl<'a> ResponsesStreamProcessor<'a> {
                                 let text = item
                                     .get("content")
                                     .and_then(|content| content.as_array())
-                                    .map(|parts| {
+                                    .map_or_default(|parts| {
                                         parts
                                             .iter()
                                             .map(|part| {
@@ -591,8 +589,7 @@ impl<'a> ResponsesStreamProcessor<'a> {
                                                 }
                                             })
                                             .collect::<String>()
-                                    })
-                                    .unwrap_or_default();
+                                    });
                                 let signature = encode_text_signature_v1(
                                     item.get("id")
                                         .and_then(|value| value.as_str())

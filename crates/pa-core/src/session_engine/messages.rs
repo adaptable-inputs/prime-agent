@@ -471,13 +471,9 @@ pub fn convert_to_llm(messages: &[AgentMessage]) -> Vec<AgentMessage> {
                 rest: serde_json::Map::default(),
             }),
             AgentMessage::CompactionSummary(summary) => {
-                let digest_block = summary
-                    .harness_digest
-                    .as_deref()
-                    .map(|digest| {
-                        format!("{HARNESS_DIGEST_PREFIX}{digest}{HARNESS_DIGEST_SUFFIX}\n\n")
-                    })
-                    .unwrap_or_default();
+                let digest_block = summary.harness_digest.as_deref().map_or_default(|digest| {
+                    format!("{HARNESS_DIGEST_PREFIX}{digest}{HARNESS_DIGEST_SUFFIX}\n\n")
+                });
                 AgentMessage::User(UserMessage {
                     content: UserContent::Blocks(vec![text_block(format!(
                         "{digest_block}{COMPACTION_SUMMARY_PREFIX}{}{COMPACTION_SUMMARY_SUFFIX}",
@@ -593,7 +589,10 @@ mod tests {
         let message = crate::prompts::model_prompts::model_prompt_error_message(&[
             "/x/model-prompts.toml: bad TOML".to_string(),
         ]);
-        assert!(convert_to_llm(&[AgentMessage::Custom(message)]).is_empty());
+        assert_eq!(
+            convert_to_llm(&[AgentMessage::Custom(message)]),
+            Vec::<pa_types::session::AgentMessage>::new()
+        );
     }
 
     /// TS `MCP_CONNECTION_OUTCOME_CUSTOM_TYPE`: the durable MCP
@@ -879,6 +878,9 @@ state
             full_output_path: None,
             timestamp: 0,
         });
-        assert!(convert_to_llm(std::slice::from_ref(&excluded)).is_empty());
+        assert_eq!(
+            convert_to_llm(std::slice::from_ref(&excluded)),
+            Vec::<pa_types::session::AgentMessage>::new()
+        );
     }
 }

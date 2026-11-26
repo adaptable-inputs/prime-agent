@@ -137,15 +137,12 @@ fn message_texts(response: &serde_json::Value) -> Vec<String> {
         .iter()
         .map(|message| match message["content"].as_str() {
             Some(text) => text.to_string(),
-            None => message["content"]
-                .as_array()
-                .map(|blocks| {
-                    blocks
-                        .iter()
-                        .filter_map(|b| b["text"].as_str())
-                        .collect::<String>()
-                })
-                .unwrap_or_default(),
+            None => message["content"].as_array().map_or_default(|blocks| {
+                blocks
+                    .iter()
+                    .filter_map(|b| b["text"].as_str())
+                    .collect::<String>()
+            }),
         })
         .collect()
 }
@@ -222,7 +219,7 @@ fn session_tree_commands_over_the_supervisor_wire() {
     let flat = tree["data"]["flatNodes"].as_array().expect("flatNodes");
     assert!(flat.len() >= 4, "entries present: {flat:?}");
     let leaf_id = tree["data"]["leafId"].as_str().expect("leafId").to_string();
-    assert!(!leaf_id.is_empty());
+    assert_ne!(leaf_id, "");
     assert!(flat.iter().all(|node| node["entry"]["id"].is_string()));
     let first_user = flat
         .iter()

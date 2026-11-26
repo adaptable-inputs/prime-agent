@@ -301,7 +301,7 @@ fn program_status_stays_silent_without_a_detection_reply() {
     harness.write(b"retry\r");
     harness.wait_from(mark, b"status-retry-sentinel", "the run went on");
     let stream = exit_without_status_clear(harness, "the unsupported program-status route");
-    assert!(status_reports(&stream).is_empty());
+    assert_eq!(status_reports(&stream), [] as [std::string::String; 0]);
 }
 
 /// Each way a run fails or is cancelled reports exactly one settle: error

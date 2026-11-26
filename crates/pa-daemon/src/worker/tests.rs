@@ -248,7 +248,10 @@ async fn background_refinement_event_is_fenced_to_its_review_session() {
         &original_id,
         json!({ "type": "refine_failed", "error": "old session" }),
     ));
-    assert!(session_events_since(&mut subscription).is_empty());
+    assert_eq!(
+        session_events_since(&mut subscription),
+        [] as [serde_json::Value; 0]
+    );
 }
 
 /// A bill made in one session never lands in the session the worker moved

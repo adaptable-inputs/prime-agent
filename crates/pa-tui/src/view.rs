@@ -712,8 +712,7 @@ impl AgentView {
             .editor
             .keybindings()
             .first_key("app.tools.expand")
-            .map(|key| crate::keybindings::format_key_text(&key))
-            .unwrap_or_default();
+            .map_or_default(|key| crate::keybindings::format_key_text(&key));
         conversation_detail_status(
             self.detail.tool_output_expanded(),
             self.detail.show_thinking(),

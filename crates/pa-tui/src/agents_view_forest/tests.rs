@@ -580,7 +580,7 @@ fn scoped_rows_lift_direct_children_and_exclude_the_root() {
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].kind, RowKind::Agent);
     assert_eq!(rows[0].title, "worker one");
-    assert!(scope_ancestors(&records, &scope).is_empty());
+    assert_eq!(scope_ancestors(&records, &scope), [] as [String; 0]);
     assert_eq!(
         scope_root(&records, &scope),
         Some(ScopeRoot {
@@ -736,7 +736,7 @@ fn ancestor_ids_walk_the_row_chain_root_most_first() {
         ancestor_session_ids(&rows, rows[2].parent_identity.as_deref()),
         vec!["p".to_string()]
     );
-    assert!(ancestor_session_ids(&rows, None).is_empty());
+    assert_eq!(ancestor_session_ids(&rows, None), [] as [String; 0]);
 }
 
 #[test]

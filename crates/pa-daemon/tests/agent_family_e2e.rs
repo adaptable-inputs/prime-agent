@@ -282,14 +282,12 @@ fn pin_legacy_agent_message_delivery(agent_dir: &Path) {
 }
 
 fn receipt_listing(dir: &Path) -> String {
-    let mut names: Vec<String> = std::fs::read_dir(dir)
-        .map(|entries| {
-            entries
-                .filter_map(std::result::Result::ok)
-                .map(|entry| entry.file_name().to_string_lossy().to_string())
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut names: Vec<String> = std::fs::read_dir(dir).map_or_default(|entries| {
+        entries
+            .filter_map(std::result::Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().to_string())
+            .collect()
+    });
     names.sort();
     names.join(", ")
 }

@@ -387,8 +387,8 @@ mod tests {
         let plain = "cat /tmp/test \\\"x lsX file2 && true";
         assert_eq!(scoped(plain, Scope::BuiltIn), vec!["cat"]);
         assert_eq!(scoped(plain, Scope::Literal), vec!["true"]);
-        assert!(scoped(plain, Scope::String).is_empty());
-        assert!(scoped(plain, Scope::Number).is_empty());
+        assert_eq!(scoped(plain, Scope::String), [] as [String; 0]);
+        assert_eq!(scoped(plain, Scope::Number), [] as [String; 0]);
     }
 
     #[test]
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn quotes_inside_a_command_substitution_stay_in_the_string() {
         let code = r#"echo "$(echo "a # b")"; ls"#;
-        assert!(scoped(code, Scope::Comment).is_empty());
+        assert_eq!(scoped(code, Scope::Comment), [] as [String; 0]);
         assert_eq!(scoped(code, Scope::String), vec![r#""$(echo "a # b")""#]);
         assert_eq!(scoped(code, Scope::BuiltIn), vec!["echo", "ls"]);
         // A single-quoted paren inside the substitution never unbalances it.

@@ -563,7 +563,7 @@ mod tests {
             /*enabled*/ false,
         );
         assert_eq!(preparation.messages, vec![conversation]);
-        assert!(!request.is_empty());
+        assert_ne!(request, Vec::<pa_types::session::AgentMessage>::new());
         let (enabled_request, _) = build_branch_summary_request_with_refinements(
             session.retained_entries(),
             50,

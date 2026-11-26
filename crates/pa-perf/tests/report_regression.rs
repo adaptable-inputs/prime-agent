@@ -61,6 +61,6 @@ fn a_report_only_row_never_fails_the_gate() {
         &[result(Scenario::ColdStart, 5_000.0)],
         &baseline(1_000.0, true),
     );
-    assert!(report.regressions.is_empty());
+    assert_eq!(report.regressions, Vec::<String>::new());
     assert!(report.markdown.contains("report-only"));
 }

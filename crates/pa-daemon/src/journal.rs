@@ -610,29 +610,26 @@ fn parse_queue_snapshot_records(path: &Path) -> Result<HashMap<String, WorkerQue
 /// One snapshot lane: a version-2 entry is the full item record; a
 /// version-1 entry is the bare message text and restores as a plain row.
 fn parse_snapshot_lane(value: Option<&Value>) -> Vec<WorkerQueueItemRecord> {
-    value
-        .and_then(Value::as_array)
-        .map(|entries| {
-            entries
-                .iter()
-                .filter_map(|entry| match entry {
-                    Value::String(message) => Some(WorkerQueueItemRecord {
-                        message: message.clone(),
-                        priority: None,
-                        preview: None,
-                        custom_message: None,
-                        queue_key: None,
-                        queue_visible: true,
-                        policy: queue_policy_default(),
-                        forced_batch: false,
-                        images: Vec::new(),
-                    }),
-                    Value::Object(_) => serde_json::from_value(entry.clone()).ok(),
-                    _ => None,
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+    value.and_then(Value::as_array).map_or_default(|entries| {
+        entries
+            .iter()
+            .filter_map(|entry| match entry {
+                Value::String(message) => Some(WorkerQueueItemRecord {
+                    message: message.clone(),
+                    priority: None,
+                    preview: None,
+                    custom_message: None,
+                    queue_key: None,
+                    queue_visible: true,
+                    policy: queue_policy_default(),
+                    forced_batch: false,
+                    images: Vec::new(),
+                }),
+                Value::Object(_) => serde_json::from_value(entry.clone()).ok(),
+                _ => None,
+            })
+            .collect()
+    })
 }
 
 #[cfg(test)]
@@ -1053,7 +1050,7 @@ mod tests {
         assert!(latest[0].busy);
         let restored = reopened.latest_queue_snapshot("s1").unwrap();
         assert_eq!(restored.0, vec![item]);
-        assert!(restored.1.is_empty());
+        assert_eq!(restored.1, [] as [crate::journal::WorkerQueueItemRecord; 0]);
         let _ = fs::remove_dir_all(path.parent().unwrap());
     }
 

@@ -789,8 +789,7 @@ fn live_row(row: &Value) -> Value {
         json!(row
             .get("nodes")
             .and_then(Value::as_array)
-            .map(|nodes| nodes.iter().map(live_node).collect::<Vec<_>>())
-            .unwrap_or_default()),
+            .map_or_default(|nodes| nodes.iter().map(live_node).collect::<Vec<_>>())),
     );
     Value::Object(projected)
 }
@@ -812,13 +811,11 @@ fn live_node(node: &Value) -> Value {
 
 /// The rows of one node array, each through its own allowlist.
 fn allowed_rows(rows: Option<&Value>, keys: &[&str]) -> Vec<Value> {
-    rows.and_then(Value::as_array)
-        .map(|rows| {
-            rows.iter()
-                .map(|row| Value::Object(allowed_fields(row, keys)))
-                .collect()
-        })
-        .unwrap_or_default()
+    rows.and_then(Value::as_array).map_or_default(|rows| {
+        rows.iter()
+            .map(|row| Value::Object(allowed_fields(row, keys)))
+            .collect()
+    })
 }
 
 /// Project one durable registry record into the page's row shape: the
@@ -859,13 +856,12 @@ fn saved_machine(record: &Value) -> Value {
             .and_then(Value::as_object)
             .and_then(|machine| machine.get("states"))
             .and_then(Value::as_array)
-            .map(|states| {
+            .map_or_default(|states| {
                 states
                     .iter()
                     .map(|state| json!({ "id": state.get("id") }))
                     .collect::<Vec<_>>()
-            })
-            .unwrap_or_default(),
+            }),
     })
 }
 
@@ -880,8 +876,7 @@ fn saved_nodes(record: &Value) -> Vec<Value> {
     let declared_order: Vec<&str> = record
         .get("order")
         .and_then(Value::as_array)
-        .map(|ids| ids.iter().filter_map(Value::as_str).collect())
-        .unwrap_or_default();
+        .map_or_default(|ids| ids.iter().filter_map(Value::as_str).collect());
     let mut ids: Vec<&str> = Vec::new();
     for id in declared_order {
         if states.contains_key(id) && !ids.contains(&id) {
@@ -924,12 +919,11 @@ fn saved_node(state: &Value) -> Value {
         "entriesUsed": state.get("entries_used"),
         "maxEntries": state.get("max_entries"),
         "entries": entries
-            .map(|rows| {
+            .map_or_default(|rows| {
                 rows.iter()
                     .map(|entry| json!({ "status": entry.get("status") }))
                     .collect::<Vec<_>>()
-            })
-            .unwrap_or_default(),
+            }),
         "instances": instances
             .iter()
             .map(|instance| json!({ "status": instance.get("status") }))
@@ -1089,8 +1083,7 @@ mod tests {
         // `_usage_report` counter), never the machine's run block.
         let machine_keys: Vec<&str> = row["machine"]
             .as_object()
-            .map(|machine| machine.keys().map(String::as_str).collect())
-            .unwrap_or_default();
+            .map_or_default(|machine| machine.keys().map(String::as_str).collect());
         assert_eq!(
             machine_keys,
             vec!["states"],
@@ -2212,8 +2205,7 @@ mod tests {
         // the same cut the saved projection makes.
         let machine_keys: Vec<&str> = row["machine"]
             .as_object()
-            .map(|machine| machine.keys().map(String::as_str).collect())
-            .unwrap_or_default();
+            .map_or_default(|machine| machine.keys().map(String::as_str).collect());
         assert_eq!(
             machine_keys,
             vec!["states"],

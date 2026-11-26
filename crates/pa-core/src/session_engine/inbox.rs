@@ -1776,18 +1776,20 @@ mod tests {
                 ["first", "third"]
             );
             // An empty window and an unknown sender take nothing.
-            assert!(inbox
-                .drain_matching(&InboxReadFilter {
+            assert_eq!(
+                inbox.drain_matching(&InboxReadFilter {
                     since_ms: Some(10_000),
                     ..Default::default()
-                })
-                .is_empty());
-            assert!(inbox
-                .drain_matching(&InboxReadFilter {
+                }),
+                Vec::<InboxMessage>::new()
+            );
+            assert_eq!(
+                inbox.drain_matching(&InboxReadFilter {
                     sender: Some("nobody".to_string()),
                     ..Default::default()
-                })
-                .is_empty());
+                }),
+                Vec::<InboxMessage>::new()
+            );
             assert_eq!(inbox.count().0, 1, "the unmatched message stays");
         }
         // The partial read replays: exactly the taken ids are gone, the
@@ -1874,7 +1876,7 @@ mod tests {
             let expected = json!({
                 "role": "custom",
                 "customType": INBOX_NOTICE_CUSTOM_TYPE,
-                "content": text.clone(),
+                "content": text,
                 "display": true,
                 "details": {
                     "sender": INBOX_NOTICE_SENDER,
@@ -1953,7 +1955,7 @@ mod tests {
         );
         let bare = enveloped(None).await.expect("a bare read drains the rest");
         assert_eq!(bare["drainedCount"], 1);
-        assert!(inbox.waiting_messages().is_empty());
+        assert_eq!(inbox.waiting_messages(), Vec::<InboxMessage>::new());
     }
 
     /// A filter with an unknown field is a REQUEST ERROR that drains

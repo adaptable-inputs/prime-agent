@@ -1,5 +1,5 @@
 //! The corpus verification battery: every generated file loads through the
-//! PRODUCT's own readers (pa-daemon SessionFile, pa-core parse, the RLM
+//! PRODUCT's own readers (pa-daemon `SessionFile`, pa-core parse, the RLM
 //! ledger replay), the tree is seed-deterministic, and the marker discipline
 //! holds. Kept small and fast: tiny corpora in temp dirs only.
 
@@ -75,12 +75,6 @@ fn the_ledger_replays_through_the_product_reader() {
 /// edge content is compared field-by-field instead).
 #[test]
 fn the_same_seed_rebuilds_the_identical_tree() {
-    let first = tempfile::tempdir().expect("temp dir");
-    let second = tempfile::tempdir().expect("temp dir");
-    let first_root = first.path().canonicalize().expect("canonical first");
-    let second_root = second.path().canonicalize().expect("canonical second");
-    generate(&tiny(Profile::Small, &first_root)).expect("first generate");
-    generate(&tiny(Profile::Small, &second_root)).expect("second generate");
     // The ledger file NAME is the hash of the canonical sessions dir, so
     // two corpus roots name it differently; normalize it for comparison.
     fn normalized(mut files: Vec<String>) -> Vec<String> {
@@ -96,11 +90,15 @@ fn the_same_seed_rebuilds_the_identical_tree() {
         }
         files
     }
-    let first_files = normalized(relative_files(&first_root));
-    let second_files = normalized(relative_files(&second_root));
-    let mut first_sorted = first_files.clone();
+    let first = tempfile::tempdir().expect("temp dir");
+    let second = tempfile::tempdir().expect("temp dir");
+    let first_root = first.path().canonicalize().expect("canonical first");
+    let second_root = second.path().canonicalize().expect("canonical second");
+    generate(&tiny(Profile::Small, &first_root)).expect("first generate");
+    generate(&tiny(Profile::Small, &second_root)).expect("second generate");
+    let mut first_sorted = normalized(relative_files(&first_root));
     first_sorted.sort();
-    let mut second_sorted = second_files.clone();
+    let mut second_sorted = normalized(relative_files(&second_root));
     second_sorted.sort();
     assert_eq!(first_sorted, second_sorted, "the file sets match");
 
@@ -110,7 +108,7 @@ fn the_same_seed_rebuilds_the_identical_tree() {
         if relative.starts_with("agent/rlm-ledger/") {
             let a = ledger_of(&first_root);
             let b = ledger_of(&second_root);
-            let edges = |path: &Path, root: &Path| -> Vec<(String, String, u32)> {
+            let edges = |path: &Path, root: &Path| -> Vec<(String, String, u64)> {
                 std::fs::read_to_string(path)
                     .expect("read ledger")
                     .lines()
@@ -124,7 +122,7 @@ fn the_same_seed_rebuilds_the_identical_tree() {
                             (
                                 value["childId"].as_str().unwrap_or_default().to_string(),
                                 child.to_string_lossy().to_string(),
-                                value["depth"].as_u64().unwrap_or_default() as u32,
+                                value["depth"].as_u64().unwrap_or_default(),
                             )
                         })
                     })

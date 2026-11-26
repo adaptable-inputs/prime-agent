@@ -43,12 +43,7 @@ impl LibraryDetail {
             return None;
         }
         let scrub = |text: &str| crate::menu_panel::scrub_controls(text);
-        let text = |key: &str| {
-            data.get(key)
-                .and_then(Value::as_str)
-                .map(scrub)
-                .unwrap_or_default()
-        };
+        let text = |key: &str| data.get(key).and_then(Value::as_str).map_or_default(scrub);
         let list = |key: &str| {
             data.get(key)
                 .and_then(Value::as_array)

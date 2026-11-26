@@ -371,8 +371,7 @@ async fn a_settled_child_passivates_stays_listable_and_revives_by_agent_message(
                 .collect::<Vec<_>>()
                 .join(" | "),
             std::fs::read_to_string(format!("/proc/{child_pid}/cmdline"))
-                .map(|raw| raw.replace('\0', " "))
-                .unwrap_or_default(),
+                .map_or_default(|raw| raw.replace('\0', " ")),
             {
                 let mut found = std::path::PathBuf::new();
                 if let Ok(entries) = std::fs::read_dir(agent_dir.join("daemon-workers")) {

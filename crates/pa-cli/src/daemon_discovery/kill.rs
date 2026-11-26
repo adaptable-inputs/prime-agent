@@ -257,8 +257,14 @@ mod tests {
         let mut stopped: Vec<(String, String)> = Vec::new();
         let mut failed: Vec<(String, String)> = Vec::new();
         terminate_verified_residuals(&root, &mut stopped, &mut failed, &HashSet::new());
-        assert!(stopped.is_empty());
-        assert!(failed.is_empty());
+        assert_eq!(
+            stopped,
+            [] as [(std::string::String, std::string::String); 0]
+        );
+        assert_eq!(
+            failed,
+            [] as [(std::string::String, std::string::String); 0]
+        );
     }
 
     fn spawn_term_ignoring_shell() -> std::process::Child {

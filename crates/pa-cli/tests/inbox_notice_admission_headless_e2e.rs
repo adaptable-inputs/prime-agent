@@ -346,14 +346,13 @@ fn row_text(row: &Value) -> String {
     }
     row.get("content")
         .and_then(Value::as_array)
-        .map(|blocks| {
+        .map_or_default(|blocks| {
             blocks
                 .iter()
                 .filter_map(|block| block.get("text").and_then(Value::as_str))
                 .collect::<Vec<_>>()
                 .join("\n")
         })
-        .unwrap_or_default()
 }
 
 /// The transcript's delivered rows (steering rows and custom rows), with

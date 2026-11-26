@@ -633,7 +633,7 @@ pub fn build_connection_views(
             transport: config.server_type().to_string(),
             login_pending: plugin.login_pending,
             source: ViewSource::User,
-            setup_hint: plugin.setup_hint.clone(),
+            setup_hint: plugin.setup_hint,
         });
     }
     for server in acp_servers {
@@ -955,6 +955,9 @@ mod connection_view_tests {
         let records: HashMap<String, McpConnectionRecord> = HashMap::new();
         let credentials = empty_credentials();
         let view_inputs = inputs(&services, Some(&user_servers), &credentials, &records);
-        assert!(build_connection_views(&view_inputs, &[]).is_empty());
+        assert_eq!(
+            build_connection_views(&view_inputs, &[]),
+            Vec::<McpConnectionView>::new()
+        );
     }
 }

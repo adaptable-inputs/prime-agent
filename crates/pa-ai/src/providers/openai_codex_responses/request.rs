@@ -187,8 +187,7 @@ mod tests {
             headers
                 .iter()
                 .find(|(key, _)| key == name)
-                .map(|(_, value)| value.clone())
-                .unwrap_or_default()
+                .map_or_default(|(_, value)| value.clone())
         };
         let headers = build_sse_headers(None, None, "acct", "tok", Some("sess-1"));
         let get = |name: &str| find(&headers, name);

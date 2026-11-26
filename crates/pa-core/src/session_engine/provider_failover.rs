@@ -835,7 +835,7 @@ mod tests {
         )];
         let harness = drive(&fast_failover(), &candidates, script).await;
         assert_eq!(harness.attempts, 1);
-        assert!(harness.switches.is_empty());
+        assert_eq!(harness.switches, Vec::<String>::new());
         assert_eq!(
             harness.events.as_slice(),
             &[AutoRetryEvent::End {
@@ -860,7 +860,7 @@ mod tests {
         )];
         let harness = drive(&fast_failover(), &candidates, script).await;
         assert_eq!(harness.attempts, 1);
-        assert!(harness.switches.is_empty());
+        assert_eq!(harness.switches, Vec::<String>::new());
         assert_eq!(
             harness.events.as_slice(),
             &[AutoRetryEvent::End {
@@ -939,7 +939,7 @@ mod tests {
             .collect();
         let harness = drive(&disabled, &candidates, script).await;
         assert_eq!(harness.attempts, 4);
-        assert!(harness.switches.is_empty());
+        assert_eq!(harness.switches, Vec::<String>::new());
         // Jittered around the 2s/4s/8s ladder (±20% with rounding
         // headroom: [1600, 2800], [3200, 5600], [6400, 11200]).
         let band = |base: u64| (base * 4 / 5, base * 7 / 5);
@@ -969,7 +969,7 @@ mod tests {
             .collect();
         let harness = drive(&fast_failover(), &[], script).await;
         assert_eq!(harness.attempts, 4);
-        assert!(harness.switches.is_empty());
+        assert_eq!(harness.switches, Vec::<String>::new());
         let band = |base: u64| (base * 4 / 5, base * 7 / 5);
         for (wait, base) in harness.waits.iter().zip([2000u64, 4000, 8000]) {
             let (low, high) = band(base);
@@ -987,9 +987,9 @@ mod tests {
         let candidates = vec![model("backup-a")];
         let harness = drive(&fast_failover(), &candidates, vec![ok_message("done")]).await;
         assert_eq!(harness.attempts, 1);
-        assert!(harness.events.is_empty());
-        assert!(harness.switches.is_empty());
-        assert!(harness.restores.is_empty());
+        assert_eq!(harness.events, Vec::<AutoRetryEvent>::new());
+        assert_eq!(harness.switches, Vec::<String>::new());
+        assert_eq!(harness.restores, Vec::<Option<String>>::new());
     }
 
     /// The compact-and-retry recovery owns it (TS `_isRetryableError`).
@@ -1002,8 +1002,8 @@ mod tests {
             Some("prompt is too long: 213462 tokens > 200000 maximum".to_string());
         let harness = drive(&fast_failover(), &candidates, vec![overflow]).await;
         assert_eq!(harness.attempts, 1);
-        assert!(harness.events.is_empty());
-        assert!(harness.switches.is_empty());
-        assert!(harness.restores.is_empty());
+        assert_eq!(harness.events, Vec::<AutoRetryEvent>::new());
+        assert_eq!(harness.switches, Vec::<String>::new());
+        assert_eq!(harness.restores, Vec::<Option<String>>::new());
     }
 }

@@ -152,7 +152,10 @@ mod tests {
     #[test]
     fn preserves_fragmented_line_breaks_and_raw_lines() {
         let mut decoder = SseDecoder::new();
-        assert!(decoder.push_text("data: first\r").is_empty());
+        assert_eq!(
+            decoder.push_text("data: first\r"),
+            Vec::<ServerSentEvent>::new()
+        );
         assert_eq!(
             decoder.push_text("\n"),
             vec![ServerSentEvent {
@@ -169,7 +172,10 @@ mod tests {
                 raw: vec!["event: update".into(), "data: next".into()],
             }]
         );
-        assert!(decoder.push_text("data: final").is_empty());
+        assert_eq!(
+            decoder.push_text("data: final"),
+            Vec::<ServerSentEvent>::new()
+        );
         assert_eq!(
             decoder.finish(),
             vec![ServerSentEvent {

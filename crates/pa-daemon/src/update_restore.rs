@@ -251,8 +251,7 @@ fn matches_selector(target: &RestoreTarget, selector: &str) -> bool {
     }
     let stem = Path::new(&target.session_file)
         .file_stem()
-        .map(|stem| stem.to_string_lossy().to_string())
-        .unwrap_or_default();
+        .map_or_default(|stem| stem.to_string_lossy().to_string());
     if crate::registry::selector_matches(&target.active_session_id, selector)
         || (!stem.is_empty() && crate::registry::selector_matches(&stem, selector))
     {
@@ -1074,7 +1073,7 @@ mod tests {
         })
         .await
         .unwrap());
-        assert!(calls.is_empty());
+        assert_eq!(calls, [] as [&str; 0]);
         row.should_resume = true;
         let mut failed_calls = Vec::new();
         let error = restore_legacy_session(&row, None, "1.0.0", |command, _| {

@@ -70,7 +70,7 @@ struct Supervisor {
 impl Drop for Supervisor {
     fn drop(&mut self) {
         let supervisor_pid = graceful_shutdown(&self.socket);
-        let worker_pids = supervisor_pid.map(child_pids_of).unwrap_or_default();
+        let worker_pids = supervisor_pid.map_or_default(child_pids_of);
         let _ = self.child.kill();
         let _ = self.child.wait();
         for pid in worker_pids {
@@ -295,7 +295,7 @@ async fn daemon_roster(socket: &Path) -> Vec<(PathBuf, String)> {
     client.close();
     list.get("sessions")
         .and_then(Value::as_array)
-        .map(|rows| {
+        .map_or_default(|rows| {
             rows.iter()
                 .filter_map(|row| {
                     let file = row.get("sessionFile")?.as_str()?;
@@ -307,7 +307,6 @@ async fn daemon_roster(socket: &Path) -> Vec<(PathBuf, String)> {
                 })
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 fn read_entries(path: &Path) -> Vec<Value> {

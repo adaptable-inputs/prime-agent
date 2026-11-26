@@ -37,9 +37,7 @@ impl CompactionReason {
     /// `cancel_hint` the resolved `app.clear` key text.
     #[must_use]
     pub fn loader_label(self, focus: Option<&str>, cancel_hint: &str) -> String {
-        let focus = focus
-            .map(|focus| format!(" (focus: {focus})"))
-            .unwrap_or_default();
+        let focus = focus.map_or_default(|focus| format!(" (focus: {focus})"));
         let label = match self {
             CompactionReason::Manual => format!("Compacting context{focus}..."),
             CompactionReason::Requested => {
@@ -281,8 +279,7 @@ fn visit_summary(
     };
     let focus = custom_instructions
         .filter(|instructions| !instructions.is_empty())
-        .map(|instructions| format!(" \u{b7} focus: {instructions}"))
-        .unwrap_or_default();
+        .map_or_default(|instructions| format!(" \u{b7} focus: {instructions}"));
     let mut line: Line = vec![Span::styled("\u{25c6} Context compacted", header)];
     if expanded {
         line.push(Span::styled(
@@ -441,14 +438,20 @@ mod tests {
             "Summary line one.\nSecond line.",
         );
         // Collapsed details: nothing (the loader stands alone).
-        assert!(render_compaction_stream(&state, false, &theme(), 80).is_empty());
+        assert_eq!(
+            render_compaction_stream(&state, false, &theme(), 80),
+            [] as [Vec<Span>; 0]
+        );
         // An empty live summary: nothing yet (no delta arrived).
         let empty = CompactionState {
             reason: CompactionReason::Threshold,
             custom_instructions: None,
             summary: String::new(),
         };
-        assert!(render_compaction_stream(&empty, true, &theme(), 80).is_empty());
+        assert_eq!(
+            render_compaction_stream(&empty, true, &theme(), 80),
+            [] as [Vec<Span>; 0]
+        );
 
         let rows = render_compaction_stream(&state, true, &theme(), 80);
         let text = plain(&rows);

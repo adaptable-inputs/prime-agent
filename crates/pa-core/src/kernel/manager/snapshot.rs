@@ -513,20 +513,19 @@ fn as_string_array(fields: &Value, key: &str) -> Vec<String> {
     fields
         .get(key)
         .and_then(Value::as_array)
-        .map(|a| {
+        .map_or_default(|a| {
             a.iter()
                 .filter_map(Value::as_str)
                 .map(str::to_string)
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 fn as_reason_array(fields: &Value, key: &str) -> Vec<SnapshotSkip> {
     fields
         .get(key)
         .and_then(Value::as_array)
-        .map(|a| {
+        .map_or_default(|a| {
             a.iter()
                 .filter_map(|entry| {
                     let obj = entry.as_object()?;
@@ -541,5 +540,4 @@ fn as_reason_array(fields: &Value, key: &str) -> Vec<SnapshotSkip> {
                 })
                 .collect()
         })
-        .unwrap_or_default()
 }

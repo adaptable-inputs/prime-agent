@@ -435,7 +435,7 @@ mod tests {
         assert_eq!(resources.agents_files.len(), 1);
         assert_eq!(resources.agents_files[0].content, "Project rules");
         assert_eq!(resources.system_prompt.as_deref(), Some("custom system"));
-        assert!(resources.append_system_prompt.is_empty());
+        assert_eq!(resources.append_system_prompt, Vec::<String>::new());
     }
 
     #[test]

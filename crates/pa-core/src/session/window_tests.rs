@@ -479,7 +479,7 @@ async fn metadata_and_concurrent_disk_append_survive_hydration() {
         store.first_user_message().unwrap()["content"],
         "x".repeat(CHUNK_BYTES * 3)
     );
-    assert!(store.metadata_entries().is_empty());
+    assert_eq!(store.metadata_entries(), [] as [String; 0]);
     let mut file = std::fs::OpenOptions::new()
         .append(true)
         .open(&path)
@@ -705,8 +705,8 @@ fn adopted_context_matches_unadopted_window_byte_for_byte() {
             phase == "warm",
             "{phase} reference open cache state"
         );
-        assert!(!reference.entries().is_empty());
-        assert!(!reference.raw_entries().is_empty());
+        assert_ne!(reference.entries(), [] as [FileEntry; 0]);
+        assert_ne!(reference.raw_entries(), [] as [String; 0]);
         let adopted = WindowedSessionStore::open(&path).unwrap().unwrap();
         let mut manager = super::super::manager::SessionManager::in_memory(dir.path());
         manager.adopt_window(adopted);
@@ -744,11 +744,11 @@ fn detached_window_serves_lookups_but_not_its_own_context() {
     std::fs::write(&path, fixture()).unwrap();
     let mut window = WindowedSessionStore::open(&path).unwrap().unwrap();
     let (bodies, raw) = window.take_retained();
-    assert!(!bodies.is_empty());
-    assert!(!raw.is_empty());
+    assert_ne!(bodies, Vec::<pa_types::session::FileEntry>::new());
+    assert_ne!(raw, Vec::<String>::new());
     assert!(window.retained_detached());
-    assert!(window.entries().is_empty());
-    assert!(window.raw_entries().is_empty());
+    assert_eq!(window.entries(), [] as [FileEntry; 0]);
+    assert_eq!(window.raw_entries(), [] as [String; 0]);
     assert_eq!(window.message_count(), 221);
     assert!(window.has_non_bootstrap_entries());
     assert!(window.has_thinking_level());
@@ -831,7 +831,7 @@ fn full_history_fixture() -> String {
     let mut parent: Option<String> = None;
     for i in 0..5 {
         let id = format!("u{i}");
-        rows.push(json!({"type":"message","id":id.clone(),"parentId":parent,"message":{"role":"user","content":format!("hello {i}"),"timestamp":0}}));
+        rows.push(json!({"type":"message","id":id,"parentId":parent,"message":{"role":"user","content":format!("hello {i}"),"timestamp":0}}));
         parent = Some(id);
     }
     // One refinement audit row (the class the refine transcript's audit scan reads).

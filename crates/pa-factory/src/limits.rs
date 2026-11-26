@@ -114,7 +114,7 @@ mod tests {
             "run": {"max_parallel": 64, "max_transitions": 10_000, "max_children": 1_000_000},
             "nodes": [{"id": "a", "retries": 10, "foreach": {"over": "xs", "max": 256}}],
         });
-        assert!(check_spec_limits(&spec).is_empty());
+        assert_eq!(check_spec_limits(&spec), Vec::<String>::new());
         let too_many = json!({"nodes": [{"id": "a", "retries": -1}]});
         assert_eq!(
             check_spec_limits(&too_many),

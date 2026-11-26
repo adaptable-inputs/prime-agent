@@ -201,7 +201,9 @@ fn compile_state(machine: &Machine, state: &State) -> Result<Value, Diagnostic> 
                 .file_stem()
                 .and_then(|stem| stem.to_str())
                 .unwrap_or_default();
-            let directory = file.parent().map(Path::to_string_lossy).unwrap_or_default();
+            let directory = file
+                .parent()
+                .map_or_else(Default::default, Path::to_string_lossy);
             out.insert(
                 "python".to_string(),
                 json!({"import": module, "callable": call.function, "path": directory}),

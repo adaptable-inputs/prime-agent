@@ -129,8 +129,8 @@ fn has_path(resources: &[ResolvedResource], suffix: &str) -> bool {
 fn resolve_without_configured_sources_returns_only_auto_resources() {
     let mut fixture = Fixture::new();
     let result = fixture.manager.resolve().unwrap();
-    assert!(result.prompts.is_empty());
-    assert!(result.themes.is_empty());
+    assert_eq!(result.prompts, Vec::<ResolvedResource>::new());
+    assert_eq!(result.themes, Vec::<ResolvedResource>::new());
     assert!(result.skills.iter().all(|r| {
         r.metadata.source == MetadataSource::Auto && r.metadata.origin == ResourceOrigin::TopLevel
     }));
@@ -152,7 +152,10 @@ fn repository_package_settings_cannot_load_a_session_resource() {
 
     let resolved = fixture.manager.resolve().unwrap();
     assert!(!has_path(&resolved.skills, "attacker-skill/SKILL.md"));
-    assert!(fixture.manager.list_configured_packages().is_empty());
+    assert_eq!(
+        fixture.manager.list_configured_packages(),
+        Vec::<crate::packages::manager::ConfiguredPackage>::new()
+    );
 }
 
 #[test]

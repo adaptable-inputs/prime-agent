@@ -541,12 +541,10 @@ pub fn message_value_to_entries(message: &Value) -> Vec<ChatEntry> {
     match role {
         // A skill-block text renders the skill-invocation card (+ the
         // trailing argument text); every other text renders the user block.
-        "user" => user_display_text(message)
-            .map(|text| {
-                crate::custom_message::skill_invocation_entries(&text)
-                    .unwrap_or_else(|| vec![ChatEntry::User { text }])
-            })
-            .unwrap_or_default(),
+        "user" => user_display_text(message).map_or_default(|text| {
+            crate::custom_message::skill_invocation_entries(&text)
+                .unwrap_or_else(|| vec![ChatEntry::User { text }])
+        }),
         "assistant" => assistant_value_to_entries(message),
         "custom" => custom_message_entries(message),
         "compactionSummary" => compaction_summary_entries(message),

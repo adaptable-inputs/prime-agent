@@ -127,9 +127,7 @@ fn legacy_read_session_info(path: &Path) -> Option<SessionInfo> {
                     .map(|duration| duration.as_millis() as u64)
             })
         });
-    let modified = modified_ms
-        .map(crate::util::iso_from_unix_ms)
-        .unwrap_or_default();
+    let modified = modified_ms.map_or_default(crate::util::iso_from_unix_ms);
     Some(SessionInfo {
         path: path.to_path_buf(),
         id: header.id,
@@ -270,7 +268,7 @@ fn untimestamped_fallback_is_not_cached() {
     let modified = newer.modified.clone();
     newer.modified = previous.modified.clone();
     assert_eq!(newer, previous);
-    assert!(!modified.is_empty());
+    assert_ne!(modified, "");
     fs::remove_dir_all(dir).unwrap();
 }
 
@@ -902,18 +900,13 @@ fn content_borrow_matches_full_parse_across_content_matrix() {
     for (entry, expected) in &messages {
         let line = entry.to_string();
         let full: SessionEntry = serde_json::from_str(&line).unwrap();
-        let reference = full
-            .fields
-            .get("message")
-            .map(message_text)
-            .unwrap_or_default();
+        let reference = full.fields.get("message").map_or_default(message_text);
         assert_eq!(&reference, expected, "reference extraction: {line}");
         let typed: SessionInfoEntry = serde_json::from_str(&line).unwrap();
         let borrowed = typed
             .message
             .as_ref()
-            .map(|message| message_content_text(message.content))
-            .unwrap_or_default();
+            .map_or_default(|message| message_content_text(message.content));
         assert_eq!(&borrowed, expected, "borrowed extraction: {line}");
         assert_eq!(borrowed, reference, "differential: {line}");
     }

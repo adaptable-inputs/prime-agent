@@ -86,17 +86,17 @@ async fn deliver_message_answers_the_ts_receipt_shape() {
     );
     assert_eq!(data["target"]["activeSessionId"], "target-session");
     assert_eq!(data["target"]["sessionName"], "target");
-    assert!(!data["target"]["sessionId"]
-        .as_str()
-        .unwrap_or_default()
-        .is_empty());
+    assert_ne!(data["target"]["sessionId"].as_str().unwrap_or_default(), "");
     assert_eq!(data["from"]["sessionName"], "source-agent");
     assert_eq!(
         queue_texts(&worker.core, Lane::Steering),
         vec!["[agent-message from source-agent]\n\nping from the first session"],
         "steering lane"
     );
-    assert!(queue_texts(&worker.core, Lane::FollowUp).is_empty());
+    assert_eq!(
+        queue_texts(&worker.core, Lane::FollowUp),
+        [] as [std::string::String; 0]
+    );
 }
 
 /// The row's content is the rendered prompt; the details carry the identity the
@@ -193,7 +193,10 @@ async fn deliver_message_follow_up_lane_and_subagent_sender() {
         vec!["[agent-message from child:source-agent]\n\nqueue me"],
         "follow-up lane"
     );
-    assert!(queue_texts(&worker.core, Lane::Steering).is_empty());
+    assert_eq!(
+        queue_texts(&worker.core, Lane::Steering),
+        [] as [std::string::String; 0]
+    );
 }
 
 /// A busy session reports `queued` with `queuedAt` (`queueIfBusy`).

@@ -256,7 +256,10 @@ async fn a_supervisor_restart_keeps_the_total_and_reconciles_a_lost_report() {
     .expect("the registration's reconcile pushes the root's row");
     assert_total(&restarted, 1.875, "after the registration reconcile");
     // The child's own registration repeats the reconcile and adds nothing.
-    assert!(restarted.reconcile_usage(&family.child).await.is_empty());
+    assert_eq!(
+        restarted.reconcile_usage(&family.child).await,
+        [] as [std::string::String; 0]
+    );
     assert_total(&restarted, 1.875, "after a repeated reconcile");
 }
 

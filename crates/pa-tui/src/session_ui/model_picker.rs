@@ -49,7 +49,7 @@ impl SessionUi {
             .as_ref()
             .and_then(|state| state.get("scopedModels"))
             .and_then(Value::as_array)
-            .map(|entries| {
+            .map_or_default(|entries| {
                 entries
                     .iter()
                     .filter_map(|entry| {
@@ -60,8 +60,7 @@ impl SessionUi {
                         ))
                     })
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         let options = ModelPickerOptions {
             models: self.model_catalog.clone(),
             current,
@@ -200,14 +199,13 @@ impl SessionUi {
             let configured_providers: std::collections::HashSet<String> = value
                 .get("configuredProviders")
                 .and_then(Value::as_array)
-                .map(|providers| {
+                .map_or_default(|providers| {
                     providers
                         .iter()
                         .filter_map(Value::as_str)
                         .map(str::to_string)
                         .collect()
-                })
-                .unwrap_or_default();
+                });
             let _ = updates.send(ModelCatalogUpdate {
                 models,
                 configured_providers,

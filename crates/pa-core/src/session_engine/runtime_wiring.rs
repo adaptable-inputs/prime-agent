@@ -118,8 +118,7 @@ pub fn wire_session_runtime(
                 session_id: session.get_session_id().to_string(),
                 session_file: session
                     .get_session_file()
-                    .map(|path| path.display().to_string())
-                    .unwrap_or_default(),
+                    .map_or_default(|path| path.display().to_string()),
                 cwd: session.get_cwd().display().to_string(),
             },
         )
@@ -278,8 +277,7 @@ pub fn kernel_provisioner(
     let rlm_session_id = session_artifact_dir
         .as_deref()
         .and_then(std::path::Path::file_name)
-        .map(|id| id.to_string_lossy().to_string())
-        .unwrap_or_default();
+        .map_or_default(|id| id.to_string_lossy().to_string());
     env.insert("RLM_SESSION_ID".to_string(), rlm_session_id);
     // Always set too: a daemon kernel must not inherit a `--print` ancestor's flag.
     env.insert(

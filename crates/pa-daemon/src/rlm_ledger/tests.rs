@@ -113,7 +113,10 @@ fn spawn_rename_delete_replay_in_order() {
             RlmLedgerDeleteReason::User,
         )
         .unwrap();
-    assert!(ledger.edges(false).unwrap().is_empty());
+    assert_eq!(
+        ledger.edges(false).unwrap(),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
     let tombstones = ledger.edges(true).unwrap();
     assert_eq!(tombstones.len(), 1);
     assert_eq!(tombstones[0].deleted, Some(RlmLedgerDeleteReason::User));
@@ -313,7 +316,10 @@ fn dead_child_or_parent_drops_from_live_edges() {
         .unwrap();
     assert_eq!(ledger.live_edges().unwrap().len(), 1);
     fs::remove_file(&child).unwrap();
-    assert!(ledger.live_edges().unwrap().is_empty());
+    assert_eq!(
+        ledger.live_edges().unwrap(),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
     assert_eq!(ledger.edges(false).unwrap().len(), 1);
 }
 
@@ -339,10 +345,22 @@ fn a_refine_edge_folds_into_the_spawn_tree_but_never_lists() {
             refine_child: true,
         })
         .unwrap();
-    assert!(ledger.edges(true).unwrap().is_empty());
-    assert!(ledger.live_edges().unwrap().is_empty());
-    assert!(ledger.live_edges_of_parent(&parent).unwrap().is_empty());
-    assert!(ledger.family_edges([parent]).unwrap().is_empty());
+    assert_eq!(
+        ledger.edges(true).unwrap(),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
+    assert_eq!(
+        ledger.live_edges().unwrap(),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
+    assert_eq!(
+        ledger.live_edges_of_parent(&parent).unwrap(),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
+    assert_eq!(
+        ledger.family_edges([parent]).unwrap(),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
     assert_eq!(
         ledger.spawn_tree().unwrap().children("p"),
         ["c".to_string()]
@@ -405,7 +423,10 @@ fn moved_edge_paths_resolve_through_the_session_id() {
     );
 
     fs::remove_file(&live_child).unwrap();
-    assert!(ledger.live_edges().unwrap().is_empty());
+    assert_eq!(
+        ledger.live_edges().unwrap(),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
     let raw = ledger.edges(false).unwrap();
     assert_eq!(raw.len(), 1);
     assert_eq!(raw[0].parent, recorded_parent);
@@ -987,7 +1008,7 @@ fn family_edges_track_restore_and_relocation_without_a_ledger_append() {
     let archived = dir.join("sessions-archive").join("child.jsonl");
     fs::create_dir_all(archived.parent().unwrap()).unwrap();
     fs::rename(&child, &archived).unwrap();
-    assert!(family_children().is_empty());
+    assert_eq!(family_children(), [] as [std::path::PathBuf; 0]);
     fs::rename(&archived, &child).unwrap();
     assert_eq!(family_children(), vec![canonical_session_path(&child)]);
     let relocated = dir.join("session-artifacts/parent/sub/child.jsonl");
@@ -995,7 +1016,7 @@ fn family_edges_track_restore_and_relocation_without_a_ledger_append() {
     fs::rename(&child, &relocated).unwrap();
     assert_eq!(family_children(), vec![canonical_session_path(&relocated)]);
     fs::remove_file(&relocated).unwrap();
-    assert!(family_children().is_empty());
+    assert_eq!(family_children(), [] as [std::path::PathBuf; 0]);
 }
 
 #[cfg(unix)]

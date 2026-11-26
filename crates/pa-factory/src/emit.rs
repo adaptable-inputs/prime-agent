@@ -256,6 +256,9 @@ mod tests {
             ])
         );
         assert_eq!(contract.missing(&values(json!({"note": "n"}))), ["verdict"]);
-        assert!(contract.missing(&values(json!({"verdict": {}}))).is_empty());
+        assert_eq!(
+            contract.missing(&values(json!({"verdict": {}}))),
+            Vec::<&str>::new()
+        );
     }
 }

@@ -3,6 +3,7 @@
 //! conversation turn generator, and the marker discipline the bench
 //! needles read from the corpus manifest.
 
+use std::fmt::Write as _;
 use std::io::Write;
 use std::path::Path;
 
@@ -153,18 +154,18 @@ pub(crate) fn session_id(rng: &mut Rng, start_ms: u64) -> String {
 
 fn sentence(rng: &mut Rng, words: usize) -> String {
     (0..words)
-        .map(|_| WORDS[rng.below(WORDS.len() as u64) as usize])
+        .map(|_| WORDS[rng.index(WORDS.len())])
         .collect::<Vec<_>>()
         .join(" ")
 }
 
 fn user_text(rng: &mut Rng) -> String {
-    (0..(1 + rng.below(3)))
+    (0..=rng.below(3))
         .map(|_| {
-            let words = 6 + rng.below(12);
-            let mut text = sentence(rng, words as usize);
+            let words = 6 + rng.index(12);
+            let mut text = sentence(rng, words);
             if rng.chance(12) {
-                text.push_str(&format!(" ({})", sentence(rng, 2)));
+                write!(text, " ({})", sentence(rng, 2)).expect("write to String");
             }
             text.push('.');
             text
@@ -174,10 +175,10 @@ fn user_text(rng: &mut Rng) -> String {
 
 fn assistant_text(rng: &mut Rng) -> String {
     let mut text = String::new();
-    for _ in 0..(1 + rng.below(3)) {
+    for _ in 0..=rng.below(3) {
         for _ in 0..(2 + rng.below(4)) {
-            let words = 8 + rng.below(16);
-            text.push_str(&sentence(rng, words as usize));
+            let words = 8 + rng.index(16);
+            text.push_str(&sentence(rng, words));
             text.push_str(". ");
         }
         text.push('\n');
@@ -186,7 +187,7 @@ fn assistant_text(rng: &mut Rng) -> String {
 }
 
 fn tool_output(rng: &mut Rng) -> String {
-    let mut text = TOOL_OUTPUTS[rng.below(TOOL_OUTPUTS.len() as u64) as usize].to_string();
+    let mut text = TOOL_OUTPUTS[rng.index(TOOL_OUTPUTS.len())].to_string();
     text.push_str(&sentence(rng, 3));
     text.push('\n');
     text
@@ -198,7 +199,11 @@ fn usage(rng: &mut Rng) -> Usage {
     let output = 50 + rng.below(2000);
     let cache_write = rng.below(500);
     let total = input + output + cache_read + cache_write;
-    let cost = |n: u64| pa_types::JsNumber::from(n as f64 / 1000.0);
+    let cost = |n: u64| {
+        pa_types::JsNumber::from(
+            f64::from(u32::try_from(n).expect("generated token counts fit u32")) / 1000.0,
+        )
+    };
     Usage {
         input,
         output,
@@ -263,12 +268,13 @@ impl Rows {
 /// # Errors
 ///
 /// Propagates serialization and filesystem failures.
+#[allow(clippy::too_many_lines)] // One ordered row stream owns RNG consumption, parent ids, and marker placement.
 pub(crate) fn write_session_file(
     path: &Path,
     spec: &SessionSpec,
     rng: &mut Rng,
 ) -> anyhow::Result<Written> {
-    let (provider, model) = MODELS[rng.below(MODELS.len() as u64) as usize];
+    let (provider, model) = MODELS[rng.index(MODELS.len())];
     let header = SessionHeader {
         version: Some(3),
         id: spec.id.clone(),
@@ -343,7 +349,7 @@ pub(crate) fn write_session_file(
             rows.push(
                 "compaction",
                 serde_json::to_value(CompactionEntry {
-                    summary: summary.clone(),
+                    summary,
                     first_kept_entry_id: format!("{:08x}", rows.counter),
                     tokens_before: 40_000 + rng.below(60_000),
                     details: None,
@@ -387,7 +393,7 @@ pub(crate) fn write_session_file(
 
         // The assistant turn: thinking + text + a tool call, then the result.
         let tool = (!marker_turn && rng.chance(45)).then(|| {
-            let name = TOOLS[rng.below(TOOLS.len() as u64) as usize];
+            let name = TOOLS[rng.index(TOOLS.len())];
             let id = format!("call-{:08x}", rows.counter);
             let mut arguments = serde_json::Map::new();
             arguments.insert(
@@ -484,7 +490,7 @@ pub(crate) fn write_session_file(
         }
 
         if !marker_turn && rng.chance(7) {
-            let custom = CUSTOM_TYPES[rng.below(CUSTOM_TYPES.len() as u64) as usize];
+            let custom = CUSTOM_TYPES[rng.index(CUSTOM_TYPES.len())];
             rows.push(
                 "custom_message",
                 serde_json::to_value(CustomMessageEntry {
@@ -501,7 +507,7 @@ pub(crate) fn write_session_file(
 
     rows.writer.flush()?;
     Ok(Written {
-        rows: rows.counter as usize,
+        rows: usize::try_from(rows.counter)?,
         last_user_text,
     })
 }

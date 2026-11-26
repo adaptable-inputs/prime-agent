@@ -144,7 +144,7 @@ fn main() -> anyhow::Result<()> {
 
 fn corpus_command(args: CorpusArgs) -> anyhow::Result<()> {
     let mut options = CorpusOptions {
-        out: args.out.clone(),
+        out: args.out,
         ..args.profile.defaults()
     };
     options.seed = args.seed;
@@ -232,7 +232,7 @@ fn run_command(args: RunArgs) -> anyhow::Result<()> {
 
 fn report_command(args: ReportArgs) -> anyhow::Result<()> {
     let mut results = Vec::new();
-    for path in &args.results {
+    for path in args.results {
         let result: pa_perf::bench::BenchResult =
             serde_json::from_str(&std::fs::read_to_string(path)?)?;
         results.push(result);

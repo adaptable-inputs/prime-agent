@@ -158,14 +158,13 @@ impl DaemonLink {
         let server_capabilities = hello
             .get("serverCapabilities")
             .and_then(Value::as_array)
-            .map(|capabilities| {
+            .map_or_default(|capabilities| {
                 capabilities
                     .iter()
                     .filter_map(Value::as_str)
                     .map(str::to_string)
                     .collect::<Vec<String>>()
-            })
-            .unwrap_or_default();
+            });
         Ok(DaemonLink {
             writer: line_tx,
             pending,
@@ -2511,11 +2510,14 @@ mod tests {
 
         handle_session_new(json!(2), json!({ "mcpServers": [] }), &link, &state, tx).await;
         assert!(responses.recv().await.unwrap().get("result").is_some());
-        assert!(state.lock().await.mcp_server_names.is_empty());
+        assert_eq!(
+            state.lock().await.mcp_server_names,
+            [] as [std::string::String; 0]
+        );
         drop(link);
         let (replacements, installed) = worker.await.unwrap();
         assert_eq!(replacements, vec![vec!["example"], vec![], vec![]]);
-        assert!(installed.is_empty());
+        assert_eq!(installed, [] as [std::string::String; 0]);
     }
 
     #[tokio::test]

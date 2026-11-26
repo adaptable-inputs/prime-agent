@@ -66,8 +66,7 @@ impl AgentsViewMode {
             // Until the first scan lands the list is empty and says it is searching.
             self.content_search
                 .matches()
-                .map(|ids| filter_by_session_ids(&filtered, ids))
-                .unwrap_or_default()
+                .map_or_default(|ids| filter_by_session_ids(&filtered, ids))
         } else {
             let parsed = parse_search_query(self.query.trim());
             filter_unified_sessions(&filtered, &parsed)

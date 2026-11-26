@@ -612,8 +612,7 @@ mod tests {
     fn first_param(body: &str, name: &str) -> String {
         url::form_urlencoded::parse(body.as_bytes())
             .find(|(key, _)| key == name)
-            .map(|(_, value)| value.to_string())
-            .unwrap_or_default()
+            .map_or_default(|(_, value)| value.to_string())
     }
 
     /// Stage the registered redirect port busy on the flow's own host (`PI_OAUTH_CALLBACK_HOST`):
@@ -711,7 +710,7 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_eq!(error, LOGIN_CANCELLED);
-            assert!(http.seen_bodies(TOKEN_URL).is_empty());
+            assert_eq!(http.seen_bodies(TOKEN_URL), Vec::<String>::new());
         }
     }
 
@@ -836,7 +835,7 @@ mod tests {
         .expect("the cancelled wait returns instead of hanging")
         .unwrap_err();
         assert_eq!(error, LOGIN_CANCELLED);
-        assert!(http.seen_bodies(TOKEN_URL).is_empty());
+        assert_eq!(http.seen_bodies(TOKEN_URL), Vec::<String>::new());
         drop(held);
     }
 
@@ -860,7 +859,7 @@ mod tests {
         .expect("the no-paste login ends on the surface's cancel")
         .unwrap_err();
         assert_eq!(error, LOGIN_CANCELLED);
-        assert!(http.seen_bodies(TOKEN_URL).is_empty());
+        assert_eq!(http.seen_bodies(TOKEN_URL), Vec::<String>::new());
     }
 
     #[tokio::test]
@@ -935,8 +934,7 @@ mod tests {
             parsed
                 .query_pairs()
                 .find(|(key, _)| key == name)
-                .map(|(_, value)| value.to_string())
-                .unwrap_or_default()
+                .map_or_default(|(_, value)| value.to_string())
         };
         assert_eq!(param("response_type"), "code");
         assert_eq!(param("client_id"), OPENAI_CODEX_CLIENT_ID);

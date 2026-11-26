@@ -215,6 +215,7 @@ impl Marker {
 /// # Errors
 ///
 /// Propagates filesystem, serialization, and ledger failures.
+#[allow(clippy::too_many_lines)] // One generation pass owns RNG order, row totals, and manifest capture.
 pub fn generate(options: &CorpusOptions) -> anyhow::Result<Manifest> {
     anyhow::ensure!(
         options.sessions >= 3,
@@ -278,7 +279,7 @@ pub fn generate(options: &CorpusOptions) -> anyhow::Result<Manifest> {
             _ => (
                 options.rows,
                 rng.chance(70)
-                    .then(|| format!("{} #{index}", TASKS[rng.below(TASKS.len() as u64) as usize])),
+                    .then(|| format!("{} #{index}", TASKS[rng.index(TASKS.len())])),
                 None,
             ),
         };
@@ -374,7 +375,7 @@ pub fn generate(options: &CorpusOptions) -> anyhow::Result<Manifest> {
         let written = rows::write_session_file(
             &file,
             &SessionSpec {
-                id: id.clone(),
+                id,
                 start_ms: start,
                 cwd: cwd.clone(),
                 rows: options.rows,
@@ -431,7 +432,7 @@ pub fn generate(options: &CorpusOptions) -> anyhow::Result<Manifest> {
             roster_inactive: options.sessions,
             switch_query: "target zqmark".to_string(),
             switch_row: "switch target zqmark".to_string(),
-            at_file: at_file.clone(),
+            at_file,
         },
     };
     std::fs::write(
@@ -442,7 +443,7 @@ pub fn generate(options: &CorpusOptions) -> anyhow::Result<Manifest> {
 }
 
 /// Replace only a prior corpus owned by this suite; arbitrary populated output
-/// remains an error. remove_dir_all does not follow nested directory symlinks.
+/// remains an error. `remove_dir_all` does not follow nested directory symlinks.
 #[cfg(any(unix, test))]
 pub(crate) fn regenerate_for_suite(options: &CorpusOptions) -> anyhow::Result<Manifest> {
     anyhow::ensure!(
@@ -537,9 +538,9 @@ pub(crate) fn set_mtime(path: &Path, millis: u64) -> anyhow::Result<()> {
 }
 
 fn count_rows(path: &Path) -> usize {
-    std::fs::read_to_string(path)
-        .map(|text| text.lines().filter(|line| !line.is_empty()).count())
-        .unwrap_or(0)
+    std::fs::read_to_string(path).map_or(0, |text| {
+        text.lines().filter(|line| !line.is_empty()).count()
+    })
 }
 
 fn warm_sidecars(sessions_dir: &Path, archive_dir: &Path) -> anyhow::Result<()> {
@@ -557,7 +558,7 @@ fn warm_sidecars(sessions_dir: &Path, archive_dir: &Path) -> anyhow::Result<()> 
 fn collect_files(root: &Path) -> anyhow::Result<Vec<String>> {
     fn walk(dir: &Path, out: &mut Vec<String>) -> anyhow::Result<()> {
         let mut entries = std::fs::read_dir(dir)?.collect::<Result<Vec<_>, _>>()?;
-        entries.sort_by_key(|entry| entry.file_name());
+        entries.sort_by_key(std::fs::DirEntry::file_name);
         for entry in entries {
             let path = entry.path();
             if path.is_dir() {

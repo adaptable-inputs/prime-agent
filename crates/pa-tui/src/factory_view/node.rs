@@ -57,7 +57,7 @@ impl NodeFiles {
         let files = data
             .get("files")
             .and_then(Value::as_array)
-            .map(|rows| {
+            .map_or_default(|rows| {
                 rows.iter()
                     .filter_map(|file| {
                         Some((
@@ -66,13 +66,12 @@ impl NodeFiles {
                         ))
                     })
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         let state_files = data
             .get("stateFiles")
             .or_else(|| data.get("state_files"))
             .and_then(Value::as_array)
-            .map(|rows| {
+            .map_or_default(|rows| {
                 rows.iter()
                     .filter_map(|row| {
                         let state = scrub(row.get("state")?.as_str()?);
@@ -86,8 +85,7 @@ impl NodeFiles {
                         Some((state, paths))
                     })
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         Self { files, state_files }
     }
 
@@ -96,7 +94,7 @@ impl NodeFiles {
         self.state_files
             .iter()
             .find(|(id, _)| id == state)
-            .map(|(_, paths)| {
+            .map_or_default(|(_, paths)| {
                 paths
                     .iter()
                     .filter_map(|path| {
@@ -107,7 +105,6 @@ impl NodeFiles {
                     })
                     .collect()
             })
-            .unwrap_or_default()
     }
 
     /// One state's files document: the header, then each file — Markdown

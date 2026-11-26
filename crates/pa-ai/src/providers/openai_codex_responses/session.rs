@@ -104,8 +104,7 @@ pub fn close_websocket_sessions(session_id: Option<&str>) {
         Some(session_id) => state
             .connections
             .remove(session_id)
-            .map(|entry| vec![entry.worker])
-            .unwrap_or_default(),
+            .map_or_default(|entry| vec![entry.worker]),
         None => state
             .connections
             .drain()

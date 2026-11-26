@@ -266,7 +266,7 @@ mod tests {
         let agent_dir = tempfile::tempdir().unwrap();
         let (breakdown, errors) =
             assemble_breakdown(dir.path(), agent_dir.path(), Some(TEXT_MODEL)).unwrap();
-        assert!(errors.is_empty());
+        assert_eq!(errors, [] as [std::string::String; 0]);
         assert!(breakdown.assembled.starts_with("# prime-agent harness"));
         assert!(breakdown
             .assembled

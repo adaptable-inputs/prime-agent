@@ -279,12 +279,18 @@ mod tests {
     #[test]
     fn empty_dir_lists_nothing() {
         let dir = temp_dir();
-        assert!(list_sessions(&dir).is_empty());
+        assert_eq!(
+            list_sessions(&dir),
+            [] as [crate::session_store::SessionInfo; 0]
+        );
     }
 
     #[test]
     fn missing_dir_lists_nothing() {
-        assert!(list_sessions(&temp_dir().join("absent")).is_empty());
+        assert_eq!(
+            list_sessions(&temp_dir().join("absent")),
+            [] as [crate::session_store::SessionInfo; 0]
+        );
     }
 
     #[test]
@@ -306,7 +312,10 @@ mod tests {
         // and finds no row.
         let foreign = dir.join("foreign.jsonl");
         fs::write(&foreign, "not a session file at all\n").unwrap();
-        assert!(list_sessions(&dir).is_empty());
+        assert_eq!(
+            list_sessions(&dir),
+            [] as [crate::session_store::SessionInfo; 0]
+        );
     }
 
     #[test]

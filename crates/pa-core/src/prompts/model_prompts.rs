@@ -365,7 +365,7 @@ files = ["a.md"]
         write_file(dir.path(), "b.md", "B");
         write_file(dir.path(), "c.md", "C");
         let resolution = resolve_model_prompts(Some("z-ai/glm-5.3"), "", &[], dir.path());
-        assert!(resolution.errors.is_empty());
+        assert_eq!(resolution.errors, Vec::<String>::new());
         assert_eq!(resolution.extras.as_deref(), Some("A\n\nB\n\nC"));
     }
 
@@ -388,7 +388,7 @@ files = ["shared.md", "user-only.md"]
             &shipped_files,
             dir.path(),
         );
-        assert!(resolution.errors.is_empty());
+        assert_eq!(resolution.errors, Vec::<String>::new());
         assert_eq!(resolution.extras.as_deref(), Some("USER\n\nUSER-ONLY"));
 
         let clean = tempfile::tempdir().unwrap();
@@ -467,7 +467,7 @@ files = ["shared.md", "user-only.md"]
     fn the_shipped_map_is_valid() {
         let empty = tempfile::tempdir().unwrap();
         let resolution = load_model_prompts(Some("z-ai/glm-5.3"), empty.path());
-        assert!(resolution.errors.is_empty());
+        assert_eq!(resolution.errors, Vec::<String>::new());
     }
 
     #[test]

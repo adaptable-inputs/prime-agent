@@ -1133,7 +1133,7 @@ mod tests {
             .filter(|error| error.scope == SettingsScope::Project)
             .map(|error| error.message.as_str())
             .collect();
-        assert!(!messages.is_empty());
+        assert_ne!(messages, Vec::<&str>::new());
         assert!(
             messages
                 .iter()

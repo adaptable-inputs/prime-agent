@@ -146,7 +146,10 @@ async fn a_delete_of_a_dead_workers_child_completes_without_a_handshake() {
         !descriptor_path.exists(),
         "the dead worker's descriptor retires"
     );
-    assert!(ledger.live_edges().expect("edges").is_empty());
+    assert_eq!(
+        ledger.live_edges().expect("edges"),
+        [] as [crate::rlm_ledger::RlmLedgerEdge; 0]
+    );
 }
 
 /// Liveness, not route state, gates the short-circuit: a live worker still

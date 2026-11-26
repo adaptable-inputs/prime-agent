@@ -388,8 +388,7 @@ impl Supervisor {
         }
         let parent_session_id = std::path::Path::new(parent_file)
             .file_stem()
-            .map(|stem| stem.to_string_lossy().into_owned())
-            .unwrap_or_default();
+            .map_or_default(|stem| stem.to_string_lossy().into_owned());
         let mut config = json!({ "cwd": cwd, "rlmDepth": depth });
         if decision_child {
             config["decisionChild"] = json!(true);

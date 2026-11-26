@@ -325,17 +325,23 @@ mod tests {
 
     #[test]
     fn name_validation_rules() {
-        assert!(validate_name("web-search", "web-search").is_empty());
-        assert!(!validate_name("web_search", "web_search").is_empty());
-        assert!(!validate_name("-lead", "-lead").is_empty());
-        assert!(!validate_name("a--b", "a--b").is_empty());
-        assert!(!validate_name("web", "other").is_empty());
+        assert_eq!(
+            validate_name("web-search", "web-search"),
+            Vec::<String>::new()
+        );
+        assert_ne!(
+            validate_name("web_search", "web_search"),
+            Vec::<String>::new()
+        );
+        assert_ne!(validate_name("-lead", "-lead"), Vec::<String>::new());
+        assert_ne!(validate_name("a--b", "a--b"), Vec::<String>::new());
+        assert_ne!(validate_name("web", "other"), Vec::<String>::new());
     }
 
     #[test]
     fn description_validation_rules() {
         assert_eq!(validate_description(""), vec!["description is required"]);
-        assert!(validate_description("ok").is_empty());
+        assert_eq!(validate_description("ok"), Vec::<String>::new());
         let long = "x".repeat(MAX_DESCRIPTION_LENGTH + 1);
         assert_eq!(validate_description(&long).len(), 1);
     }
@@ -404,7 +410,7 @@ mod tests {
         std::fs::create_dir_all(&skill_dir).expect("mkdir");
         std::fs::write(skill_dir.join("SKILL.md"), "---\n---\nUse it well.").expect("write");
         let result = crate::skills::load_skills_from_dir(dir.path(), "user");
-        assert!(result.skills.is_empty());
+        assert_eq!(result.skills, Vec::<Skill>::new());
         assert!(result.diagnostics.iter().any(
             |d| matches!(d, crate::skills::ResourceDiagnostic::Warning { message, .. }
                 if message == "description is required")
@@ -427,7 +433,7 @@ mod tests {
         .expect("write");
         let yaml_error = serde_yaml::from_str::<serde_yaml::Value>(yaml).unwrap_err();
         let result = crate::skills::load_skills_from_dir(dir.path(), "user");
-        assert!(result.skills.is_empty());
+        assert_eq!(result.skills, Vec::<Skill>::new());
         assert_eq!(
             result.diagnostics,
             vec![crate::skills::ResourceDiagnostic::Warning {
@@ -515,7 +521,7 @@ mod tests {
         let skills = [skill];
         let (expanded, used) = expand_skill_command("/skill:gone", &skills);
         assert_eq!(expanded, "/skill:gone");
-        assert!(used.is_empty());
+        assert_eq!(used, Vec::<&Skill>::new());
     }
 
     #[test]

@@ -767,7 +767,10 @@ mod tests {
                 UserOrProject::User
             )
             .unwrap());
-        assert!(manager.list_configured_packages().is_empty());
+        assert_eq!(
+            manager.list_configured_packages(),
+            Vec::<ConfiguredPackage>::new()
+        );
         assert_eq!(read_settings(&dir)["packages"], serde_json::json!([]));
 
         assert!(!manager
@@ -788,7 +791,10 @@ mod tests {
                 dir.path().join("cwd").join("no-such-pkg").display()
             )
         );
-        assert!(manager.list_configured_packages().is_empty());
+        assert_eq!(
+            manager.list_configured_packages(),
+            Vec::<ConfiguredPackage>::new()
+        );
     }
 
     #[test]
@@ -829,7 +835,10 @@ mod tests {
         // Global settings are never created by a project-scoped install.
         assert!(!dir.path().join("agent").join("settings.json").exists());
 
-        assert!(manager.list_configured_packages().is_empty());
+        assert_eq!(
+            manager.list_configured_packages(),
+            Vec::<ConfiguredPackage>::new()
+        );
         assert!(manager.remove_source_from_settings("./project-pkg", UserOrProject::Project));
         let updated: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(
@@ -878,7 +887,10 @@ mod tests {
         let agent_local = dir.path().join("agent").join("filtered-pkg");
         assert!(manager
             .remove_source_from_settings(&agent_local.display().to_string(), UserOrProject::User));
-        assert!(manager.list_configured_packages().is_empty());
+        assert_eq!(
+            manager.list_configured_packages(),
+            Vec::<ConfiguredPackage>::new()
+        );
     }
 
     #[test]
@@ -897,7 +909,7 @@ mod tests {
         let error = manager
             .install_and_persist("./no-such-pkg", UserOrProject::User)
             .unwrap_err();
-        assert!(!error.to_string().is_empty());
+        assert_ne!(error.to_string(), "");
         let events = events.lock().unwrap();
         assert_eq!(events[0].0, ProgressEventKind::Start);
         assert_eq!(events[0].1, ProgressAction::Install);

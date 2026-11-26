@@ -176,7 +176,7 @@ impl MockSupervisor {
                                 let owned: Vec<Value> = runs
                                     .get("runs")
                                     .and_then(Value::as_array)
-                                    .map(|rows| {
+                                    .map_or_default(|rows| {
                                         rows.iter()
                                             .cloned()
                                             .map(|mut row| {
@@ -198,8 +198,7 @@ impl MockSupervisor {
                                                 row
                                             })
                                             .collect()
-                                    })
-                                    .unwrap_or_default();
+                                    });
                                 json!({ "runs": owned, "warnings": [] })
                             }
                             // The node view's lane: the fixture answers the requested

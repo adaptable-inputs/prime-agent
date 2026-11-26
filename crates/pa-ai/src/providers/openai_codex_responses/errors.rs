@@ -267,8 +267,7 @@ fn codex_usage_limit_message(
     }
     let plan = error
         .plan_type
-        .map(|plan| format!(" ({plan} plan)"))
-        .unwrap_or_default();
+        .map_or_default(|plan| format!(" ({plan} plan)"));
     // Epoch millis fit i64; the max(0) floor makes the ms count non-negative for the u64 wire field.
     #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     let retry_after_ms = error
@@ -285,14 +284,12 @@ fn codex_usage_limit_message(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss
     )]
-    let when = retry_after_ms
-        .map(|ms| {
-            format!(
-                " Try again in ~{} min.",
-                (ms as f64 / 60_000.0).round() as u64
-            )
-        })
-        .unwrap_or_default();
+    let when = retry_after_ms.map_or_default(|ms| {
+        format!(
+            " Try again in ~{} min.",
+            (ms as f64 / 60_000.0).round() as u64
+        )
+    });
     let friendly = format!("You have hit your ChatGPT usage limit{plan}.{when}")
         .trim()
         .to_string();
